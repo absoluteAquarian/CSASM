@@ -1,0 +1,61 @@
+﻿.asm_name Example
+.stack 500
+
+; Global variable example
+.global field : i32
+
+func main:
+	push 5
+	st field
+	
+	push "Hello World!"  ; Text printing example
+	print.n
+
+	call method          ; Method calling example
+
+	.local result : i32  ; Local variable usage example
+	call typemethod
+	st result
+
+	; String interpolation example
+	; "interp" expects two values on the top of the stack in this order:
+	;   - how many values should be popped off of the stack
+	;   - the elements on the stack
+	ld result
+	push 1
+	interp "result: {0}"
+	print.n
+
+	call divmethod
+	push 1
+	interp "25.0 / 5.2 = {0}"
+	print.n
+	exit
+end
+
+.hide	
+func method:
+	push 15
+	push 25
+	add
+	push 1
+	interp "15 + 25 = {0}"
+	print.n
+	ret
+end
+
+.hide
+func typemethod:
+	ld field
+	dup
+	mul
+	ret
+end
+
+.hide
+func divmethod:
+	push 25.0f
+	push 5.2f
+	div
+	ret
+end
