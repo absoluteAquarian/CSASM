@@ -4,7 +4,7 @@ namespace CSASM{
 	internal class CodeBuilder{
 		private readonly StringBuilder sb;
 
-		private int indentStride;
+		public int IndentStride{ get; private set; }
 
 		private string indents;
 
@@ -12,36 +12,36 @@ namespace CSASM{
 
 		public CodeBuilder(){
 			sb = new StringBuilder();
-			indentStride = 0;
+			IndentStride = 0;
 			indents = "";
 		}
 
 		public CodeBuilder(int capacity){
 			sb = new StringBuilder(capacity);
-			indentStride = 0;
+			IndentStride = 0;
 			indents = "";
 		}
 
 		public void Indent(){
-			indentStride++;
+			IndentStride++;
 			indents += "\t";
 		}
 
 		public void IndentTo(int stride){
-			if(indentStride == stride)
+			if(IndentStride == stride)
 				return;
 
-			if(indentStride < stride)
-				while(indentStride < stride)
+			if(IndentStride < stride)
+				while(IndentStride < stride)
 					Indent();
-			else if(indentStride > stride)
-				while(indentStride > stride)
+			else if(IndentStride > stride)
+				while(IndentStride > stride)
 					Outdent();
 		}
 
 		public void Outdent(){
-			if(indentStride > 0){
-				indentStride--;
+			if(IndentStride > 0){
+				IndentStride--;
 				indents = indents.Substring(1);
 			}
 		}

@@ -27,8 +27,9 @@ func main:
 	print.n
 
 	call divmethod
+	sta "25.0 / 5.2 = {0}"
 	push 1
-	interp "25.0 / 5.2 = {0}"
+	interp ($a)
 	print.n
 	exit
 end

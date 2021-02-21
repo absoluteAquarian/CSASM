@@ -125,30 +125,122 @@ namespace CSASM{
 			if(!CodeGenerator.IsValidLanguageIndependentIdentifier(asmName))
 				throw new CompileException($"Assembly name was invalid: {asmName}");
 
-			bool creatingMethod = false;
-			bool methodAccessibilityDefined = false;
-
 			//Construct the code
-			sb.Append($"namespace {asmName}");
-			sb.AppendLine("{");
+			//Namespace start
+			sb.Append($"namespace {asmName}{{");
 			sb.Indent();
-
-			sb.Append($"public static class Program");
-			sb.AppendLine("{");
+			//Program class start
+			sb.AppendLine("public static class Program{");
 			sb.Indent();
-			
-			sb.AppendLine("public static Stack<dynamic> stack;");
-			sb.AppendLine("public static dynamic d1;");
-			sb.AppendLine("public static int i_interp;");
-
+			//Main method start
 			sb.AppendLine("public static void Main(){");
 			sb.Indent();
-
-			sb.AppendLine($"stack = new Stack<dynamic>({stackSize});");
+			sb.AppendLine($"Ops.stack = new Stack<dynamic>({stackSize});");
 			sb.AppendLine("csasm_main();");
 			sb.Outdent();
-
 			sb.AppendLine("}");
+			//Main method end
+			TranspileMethodsVariables(sb, source);
+			sb.Outdent();
+			sb.AppendLine("}");
+			//Program class end
+			//Ops class start
+			sb.AppendLine("public static class Ops{");
+			sb.Indent();
+			sb.AppendLine("public static Stack<dynamic> stack;");
+			sb.AppendLine("public static dynamic _reg_d1;");
+			sb.AppendLine("public static dynamic _reg_accumulator = 0;");
+			//Instruction methods start
+			WriteInstructionFunc(sb, "abs", null,
+				"stack.Push(Math.Abs(stack.Pop()));");
+
+			WriteInstructionFunc(sb, "add", null,
+				"stack.Push(stack.Pop() + stack.Pop());");
+
+			WriteInstructionFunc(sb, "div", null,
+				"_reg_d1 = stack.Pop();\n" +
+				"stack.Push(stack.Pop() / _reg_d1);");
+
+			WriteInstructionFunc(sb, "dup", null,
+				"_reg_d1 = stack.Pop();\n" +
+				"stack.Push(_reg_d1);\n" +
+				"stack.Push(_reg_d1);");
+
+			WriteInstructionFunc(sb, "interp", "string str",
+				"var acc = _reg_accumulator;\n" +
+				"_reg_accumulator = (int)stack.Pop();\n" +
+				"_reg_d1 = new List<string>();\n" +
+				"for(int i = 0; i < _reg_accumulator; i++){\n" +
+					"\t_reg_d1.Add(stack.Pop().ToString());\n" +
+				"}\n" +
+				"_reg_accumulator = acc;\n" +
+				"_reg_d1.Reverse();\n" +
+				"_reg_d1 = _reg_d1.ToArray();\n" +
+				"stack.Push(string.Format(str, _reg_d1));");
+
+			WriteInstructionFunc(sb, "mul", null,
+				"stack.Push(stack.Pop() * stack.Pop());");
+
+			WriteInstructionFunc(sb, "sub", null,
+				"_reg_d1 = stack.Pop();\n" +
+				"stack.Push(stack.Pop() - _reg_d1);");
+			//Instructino method end
+			sb.Outdent();
+			sb.AppendLine("}");
+			//Ops class end
+			sb.Outdent();
+			sb.AppendLine("}");
+			//Namespace end
+
+			string code = sb.ToString();
+
+			if(reportTranspiledCode)
+				using(StreamWriter writer = new StreamWriter(File.Open($"build - {asmName}.cs", FileMode.Create)))
+					writer.WriteLine(code);
+
+			return code;
+		}
+
+		private static void WriteInstructionFunc(CodeBuilder sb, string instr, string parameters, string body){
+			sb.AppendLine($"public static void func_{instr}({parameters ?? ""}){{");
+			sb.Indent();
+			int startIndent = sb.IndentStride;
+			var lines = body.Split(new char[]{ '\n' }, StringSplitOptions.RemoveEmptyEntries);
+			for(int s = 0; s < lines.Length; s++){
+				string line = lines[s];
+				int indents = 0;
+				while(line.StartsWith("\t")){
+					indents++;
+					line = line.Substring(1);
+				}
+				sb.IndentTo(startIndent + indents);
+				sb.AppendLine(line);
+			}
+			sb.Outdent();
+			sb.AppendLine("}");
+		}
+
+		private static void CheckMethodEnd(AsmFile source, CodeBuilder sb, bool creatingMethod, int i){
+			static bool Invalid(AsmToken token) => token.token != "end";
+
+			if(creatingMethod){
+				if((i > 0 && Invalid(source.tokens[i - 1][0])) || (i > 1 && Invalid(source.tokens[i - 2][0]))){
+					//Previous method body was incomplete
+					//Move back up until we get to the method declaration for the previous method
+					while(source.tokens[--i].TrueForAll(t => t != Tokens.Func));
+
+					throw new CompileException(line: i, "Method body was incomplete");
+				}
+
+				sb.Outdent();
+
+				sb.AppendLine("}");
+			}
+		}
+
+		private static void TranspileMethodsVariables(CodeBuilder sb, AsmFile source){
+			bool creatingMethod = false;
+			bool methodAccessibilityDefined = false;
 
 			for(int i = 0; i < source.tokens.Count; i++){
 				var line = source.tokens[i];
@@ -230,56 +322,6 @@ namespace CSASM{
 					}
 				}
 			}
-
-			sb.IndentTo(2);
-
-			sb.AppendLine("private static void func_interp(string str){");
-			sb.Indent();
-			sb.AppendLine("i_interp = (int)stack.Pop();");
-			sb.AppendLine("d1 = new List<string>();");
-			sb.AppendLine("for(int __loop_i = 0; __loop_i < i_interp; __loop_i++){");
-			sb.Indent();
-			sb.AppendLine("d1.Add(stack.Pop().ToString());");
-			sb.Outdent();
-			sb.AppendLine("}");
-			sb.AppendLine("d1.Reverse();");
-			sb.AppendLine("d1 = d1.ToArray();");
-			sb.AppendLine("stack.Push(string.Format(str, d1));");
-			sb.Outdent();
-			sb.AppendLine("}");
-
-			sb.IndentTo(1);
-
-			sb.AppendLine("}");
-			sb.Outdent();
-
-			sb.AppendLine("}");
-
-			string code = sb.ToString();
-
-			if(reportTranspiledCode)
-				using(StreamWriter writer = new StreamWriter(File.Open($"build - {asmName}.cs", FileMode.Create)))
-					writer.WriteLine(code);
-
-			return code;
-		}
-
-		private static void CheckMethodEnd(AsmFile source, CodeBuilder sb, bool creatingMethod, int i){
-			static bool Invalid(AsmToken token) => token.token != "end";
-
-			if(creatingMethod){
-				if((i > 0 && Invalid(source.tokens[i - 1][0])) || (i > 1 && Invalid(source.tokens[i - 2][0]))){
-					//Previous method body was incomplete
-					//Move back up until we get to the method declaration for the previous method
-					while(source.tokens[--i].TrueForAll(t => t != Tokens.Func));
-
-					throw new CompileException(line: i, "Method body was incomplete");
-				}
-
-				sb.Outdent();
-
-				sb.AppendLine("}");
-			}
 		}
 
 		private static void TranspileInstruction(CodeBuilder sb, List<AsmToken> line, int i, int t){
@@ -287,58 +329,79 @@ namespace CSASM{
 			if(t != 0)
 				throw new CompileException(line: i, $"Instruction token \"{token.token}\" had other tokens before it");
 
+			string argToken = line.Count > 1 ? line[1].token : "";
+
+			if(line.Count > 1){
+				//Handle register keywords
+				argToken = argToken switch{
+					"$a" => "Ops._reg_accumulator",
+					"$1" => "Ops._reg_d1",
+					"($a)" => "string.Format(\"{0}\", Ops._reg_accumulator)",
+					"($1)" => "string.Format(\"{0}\", Ops._reg_d1)",
+					_ => argToken
+				};
+			}
+
 			switch(token.token){
 				case "abs":
-					sb.AppendLine("stack.Push(Math.Abs(stack.Pop()));");
+					sb.AppendLine("Ops.func_abs();");
 					break;
 				case "add":
-					sb.AppendLine("stack.Push(stack.Pop() + stack.Pop());");
+					sb.AppendLine("Ops.func_add();");
 					break;
 				case "call":
-					sb.AppendLine($"{line[1].token}();");
+					sb.AppendLine($"{argToken}();");
 					break;
 				case "div":
-					sb.AppendLine("d1 = stack.Pop();");
-					sb.AppendLine("stack.Push(stack.Pop() / d1);");
+					sb.AppendLine("Ops.func_div();");
 					break;
 				case "dup":
-					sb.AppendLine("d1 = stack.Pop();");
-					sb.AppendLine("stack.Push(d1);");
-					sb.AppendLine("stack.Push(d1);");
+					sb.AppendLine("Ops.func_dup();");
 					break;
 				case "exit":
 					sb.AppendLine("Environment.Exit(0);");
 					break;
 				case "interp":
-					sb.AppendLine($"func_interp({line[1].token});");
+					sb.AppendLine($"Ops.func_interp({argToken});");
 					break;
 				case "ld":
-					sb.AppendLine($"stack.Push({line[1].token});");
+					sb.AppendLine($"Ops.stack.Push({argToken});");
+					break;
+				case "lda":
+					sb.AppendLine($"{argToken} = Ops._reg_accumulator;");
 					break;
 				case "mul":
-					sb.AppendLine("stack.Push(stack.Pop() * stack.Pop());");
+					sb.AppendLine("Ops.func_mul();");
 					break;
 				case "pop":
-					sb.AppendLine("stack.Pop();");
+					sb.AppendLine("Ops.stack.Pop();");
+					break;
+				case "popa":
+					sb.AppendLine("Ops._reg_accumulator = Ops.stack.Pop();");
 					break;
 				case "print":
-					sb.AppendLine("Console.Write(stack.Pop());");
+					sb.AppendLine("Console.Write(Ops.stack.Pop());");
 					break;
 				case "print.n":
-					sb.AppendLine("Console.WriteLine(stack.Pop());");
+					sb.AppendLine("Console.WriteLine(Ops.stack.Pop());");
 					break;
 				case "push":
-					sb.AppendLine($"stack.Push({line[1].token});");
+					sb.AppendLine($"Ops.stack.Push({argToken});");
+					break;
+				case "pusha":
+					sb.AppendLine("Ops.stack.Push(Ops._reg_accumulator);");
 					break;
 				case "ret":
 					sb.AppendLine("return;");
 					break;
 				case "st":
-					sb.AppendLine($"{line[1].token} = stack.Pop();");
+					sb.AppendLine($"{argToken} = Ops.stack.Pop();");
+					break;
+				case "sta":
+					sb.AppendLine($"Ops._reg_accumulator = {argToken};");
 					break;
 				case "sub":
-					sb.AppendLine("d1 = stack.Pop();");
-					sb.AppendLine("stack.Push(stack.Pop() - d1);");
+					sb.AppendLine("Ops.func_sub();");
 					break;
 				default:
 					throw new CompileException(line: i, "Unknown instruction: " + token.token);

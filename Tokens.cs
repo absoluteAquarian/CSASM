@@ -45,8 +45,10 @@ namespace CSASM{
 			"exit",
 			"mul",
 			"pop",
+			"popa",
 			"print",
 			"print.n",
+			"pusha",
 			"ret",
 			"sub"
 		};
@@ -55,8 +57,10 @@ namespace CSASM{
 			"call",
 			"interp",
 			"ld",
+			"lda",
 			"push",
-			"st"
+			"st",
+			"sta"
 		};
 
 		public static bool HasOperand(AsmToken token){
