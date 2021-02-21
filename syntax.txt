@@ -1,0 +1,67 @@
+﻿OVERVIEW OF CSASM
+=================
+
+CSASM is a stack-based language written in an assembly-like syntax that is executed like a C# program.
+
+
+All CSASM files should have the extension ".csa".
+
+For any given CSASM project, a function named "main" must be defined.  This is where the code will start running from in the CSASM sandbox.
+
+The stack is internally represented as a Stack<dynamic>, meaning any values can be pushed to it.
+Care should be used when popping entries from the stack since attempting to pop an entry from the stack with an invalid type will cause a runtime error.
+
+For the sake of consistency with assembly in general, all defined functions are static.
+Functions can be marked as "private" or "public".  Private functions are only visible from within a given file, whereas public functions are visible everywhere.
+
+
+DEFINED TOKENS
+==============
+
+.asm_name ............... The name of the assembly.  Defaults to "csasm_prog" if not defined.
+.hide ................... Marks a function as "private".  Methods default to "public" if this token isn't used
+.local .................. Marks atoken as a local variable
+.pub .................... Marks a function as "public".
+.stack .................. The capacity of the stack this assembly will use.  Defaults to 1000 entries.
+.global ................. Marks a token as a variable
+end ..................... Ends a method declaration
+func <name>: ............ Begins a method declaration whose name is <name>
+
+
+DEFINED TYPES
+=============
+
+char .................... Character literal type
+f32 ..................... 32-bit floating-point type
+f64 ..................... 64-bit floating-point type
+f128 .................... 128-bit floating-point type
+i16 ..................... Signed 16-bit integer type
+i32 ..................... Signed 32-bit integer type
+i64 ..................... Signed 64-bit integer type
+i8 ...................... Signed 8-bit integer type
+str ..................... String type
+u16 ..................... Unsigned 16-bit integer type
+u32 ..................... Unsigned 32-bit integer type
+u64 ..................... Unsigned 64-bit integer type
+u8 ...................... Unsigned 8-bit integer type
+
+
+DEFINED INSTRUCTIONS
+====================
+
+abs ..................... Pops a value from the stack and pushes its absolute value
+add ..................... Pops two values from the stack and pushes the result of their addition
+call <func> ............. Calls a function.  The function's arguments must be pushed to the stack before this instruction
+div ..................... Pops two values from the stack and pushes the result of the first divided by the second
+dup ..................... Duplicates the value at the top of the stack
+exit .................... Stops the program
+interp <str> ............ Pops a 32-bit integer from the stack.  Using that value, N objects will be popped from the stack and used in formatting the input <str> string
+ld <var> ................ Pushes the value contained in <var> to the stack
+mul ..................... Pops two values from the stack and pushes the result of their product
+pop ..................... Pops a value from the stack
+print <str> ............. Pops a string from the stack, then prints it to the console
+print.n <str> ........... Pops a string from the stack, then prints it to the console with a newline appended
+push <arg> .............. Pushes <arg> to the stack
+ret ..................... Returns from a method
+st <var> ................ Stores the value at the top of the stack to <var>
+sub ..................... Pops two values from the stack and pushes the result of the second subtracted from the first
