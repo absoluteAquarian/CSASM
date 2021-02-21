@@ -46,16 +46,16 @@ namespace CSASM{
 		}
 
 		private static int Compile(string[] args){
-			Console.WriteLine($"CSASM Compiler v{version}\n");
-
 			//Expects only one argument: the file where the "main" function is declared
 			if(args.Length == 0){
 				//Print help info
-				Console.WriteLine("Could not determine which file should be compiled.");
+				Console.WriteLine("Expected usage:    csasm <file> [-out:<file>] [-report:<true|false>]");
 
 				//Successful exit, but no compile happened
 				return 1;
 			}
+			
+			Console.WriteLine($"CSASM Compiler v{version}\n");
 
 			//Any args after the first one are ignored
 			AsmFile file = AsmFile.ParseSourceFile(args[0]);
@@ -149,7 +149,12 @@ namespace CSASM{
 			sb.Indent();
 			sb.AppendLine("public static Stack<dynamic> stack;");
 			sb.AppendLine("public static dynamic _reg_d1;");
+			sb.AppendLine("public static dynamic _reg_d2;");
+			sb.AppendLine("public static dynamic _reg_d3;");
+			sb.AppendLine("public static dynamic _reg_d4;");
+			sb.AppendLine("public static dynamic _reg_d5;");
 			sb.AppendLine("public static dynamic _reg_accumulator = 0;");
+			sb.AppendLine("public static byte flags = 0;");
 			//Instruction methods start
 			WriteInstructionFunc(sb, "abs", null,
 				"stack.Push(Math.Abs(stack.Pop()));");
@@ -336,8 +341,16 @@ namespace CSASM{
 				argToken = argToken switch{
 					"$a" => "Ops._reg_accumulator",
 					"$1" => "Ops._reg_d1",
+					"$2" => "Ops._reg_d2",
+					"$3" => "Ops._reg_d3",
+					"$4" => "Ops._reg_d4",
+					"$5" => "Ops._reg_d5",
 					"($a)" => "string.Format(\"{0}\", Ops._reg_accumulator)",
 					"($1)" => "string.Format(\"{0}\", Ops._reg_d1)",
+					"($2)" => "string.Format(\"{0}\", Ops._reg_d2)",
+					"($3)" => "string.Format(\"{0}\", Ops._reg_d3)",
+					"($4)" => "string.Format(\"{0}\", Ops._reg_d4)",
+					"($5)" => "string.Format(\"{0}\", Ops._reg_d5)",
 					_ => argToken
 				};
 			}

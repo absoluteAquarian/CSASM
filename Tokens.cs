@@ -63,12 +63,7 @@ namespace CSASM{
 			"sta"
 		};
 
-		public static bool HasOperand(AsmToken token){
-			if(token.type != AsmTokenType.Instruction)
-				return false;
-
-			string name = token.token;
-			return name == "call" || name == "interp" || name == "ld" || name == "print" || name == "print.n" || name == "push" || name == "st";
-		}
+		public static bool HasOperand(AsmToken token)
+			=> token.type == AsmTokenType.Instruction && instructionWordsWithParameters.Contains(token.token);
 	}
 }

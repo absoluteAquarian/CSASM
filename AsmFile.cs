@@ -1,4 +1,5 @@
 ﻿using System;
+using System.CodeDom.Compiler;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -130,6 +131,10 @@ namespace CSASM{
 						token.token = "csasm_" + word;
 					else if(token.token == null)
 						token.token = word;
+
+					//Verify that method and variable names are valid
+					if((token.type == AsmTokenType.MethodName || token.type == AsmTokenType.VariableName) && !CodeGenerator.IsValidLanguageIndependentIdentifier(token.token))
+						throw new CompileException(line: i, $"{(token.type == AsmTokenType.MethodName ? "Function" : "Variable")} name was invalid");
 
 					tokens[i].Add(token);
 				}

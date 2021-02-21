@@ -77,3 +77,7 @@ DEFINED REGISTERS
 
 $a ...................... The accumulator.  Accessed/modified using the "lda"/"sta" instructions
 $1 ...................... A temporary register.  Can be used to store any value, but the value is likely to be clobbered by instructions or called functions.
+$2 ......................   ---
+$3 ......................   ---
+$4 ......................   ---
+$5 ......................   ---
