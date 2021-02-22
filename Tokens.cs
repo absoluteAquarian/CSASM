@@ -36,6 +36,10 @@ namespace CSASM{
 
 		public static AsmToken InstructionOperand = new AsmToken(null, type: AsmTokenType.InstructionOperand, null);
 
+		public static AsmToken Label = new AsmToken(".lbl", type: AsmTokenType.Label, AsmTokenType.LabelName);
+
+		public static AsmToken LabelName = new AsmToken(null, type: AsmTokenType.LabelName, null);
+
 		//Parameterless instructions
 		public static readonly List<string> instructionWords = new List<string>(){
 			"abs",
@@ -43,27 +47,37 @@ namespace CSASM{
 			"asl",
 			"asr",
 			"clc",
+			"comp",
+			"comp.gt",
+			"comp.lt",
 			"div",
 			"dup",
 			"exit",
 			"ldc",
 			"mul",
+			"not",
 			"pop",
-			"popa",
+			"pop.a",
 			"print",
 			"print.n",
-			"pusha",
-			"pushc",
+			"push.a",
+			"push.c",
 			"ret",
 			"rol",
 			"ror",
+			"stc",
 			"sub"
 		};
 		//Instructions with an operand
 		public static readonly List<string> instructionWordsWithParameters = new List<string>(){
+			"br",
+			"brc",
+			"brt",
 			"call",
 			"conv",
-			"conva",
+			"conv.a",
+			"dec",
+			"inc",
 			"interp",
 			"ld",
 			"lda",

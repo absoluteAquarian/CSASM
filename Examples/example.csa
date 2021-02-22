@@ -29,24 +29,26 @@ func main:
 	call divmethod
 	sta "25.0 / 5.2 = {0}"
 	push 1
-	interp ($a)
+	interp $a
 	print.n
 	
 	; Carry example
 	sta 151
-	pusha
+	push.a
 	push 1
 	interp "Accumulator before ROR: 0x{0:X4}"
 	print.n
 	ror
-	pusha
+	push.a
 	push 1
 	interp "Accumulator after ROR: 0x{0:X4}"
 	print.n
-	pushc
+	push.c
 	push 1
 	interp "Carry flag: {0}"
 	print.n
+	
+	call branchmethod
 	exit
 end
 
@@ -74,5 +76,36 @@ func divmethod:
 	push 25.0f
 	push 5.2f
 	div
+	ret
+end
+
+.hide
+func branchmethod:
+	; Jumping/branching example
+	.local counter : i32
+	; Loop from 1 to 10
+	sta 1
+	lda counter
+	sta 10
+.lbl loop
+	; Print the current number
+	push counter
+	push 1
+	interp "{0}"
+	print
+	; Exit the loop if the counter >= the accumulator
+	push $a
+	push counter
+	comp.gt
+	brt loopEnd
+	comp
+	brt loopEnd
+	inc counter
+	push ", "
+	print
+	br loop
+.lbl loopEnd
+	push "\n"
+	print
 	ret
 end

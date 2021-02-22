@@ -1,6 +1,4 @@
-﻿using System.Collections.Generic;
-
-namespace CSASM{
+﻿namespace CSASM{
 	internal enum AsmTokenType{
 		None,
 		AssemblyName,
@@ -19,7 +17,10 @@ namespace CSASM{
 		VariableType,
 
 		Instruction,
-		InstructionOperand
+		InstructionOperand,
+
+		Label,
+		LabelName
 	}
 
 	/// <summary>

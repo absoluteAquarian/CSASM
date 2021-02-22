@@ -19,17 +19,21 @@ DEFINED TOKENS
 ==============
 
 .asm_name ............... The name of the assembly.  Defaults to "csasm_prog" if not defined.
+
 .global ................. Marks a token as a global variable
+
 .hide ................... Marks a function as "private".  Methods default to "public" if this token isn't used
+
+.lbl <name> ............. Defines a jump/branch label whose name is <name>
 .local .................. Marks atoken as a local variable
+
 .pub .................... Marks a function as "public".
+
 .stack .................. The capacity of the stack this assembly will use.  Defaults to 1000 entries.
 
 end ..................... Ends a method declaration
 
 func <name>: ............ Begins a method declaration whose name is <name>
-
-(<reg>) ................. Retrieves the value stored in the <reg> register
 
 
 DEFINED TYPES
@@ -62,37 +66,48 @@ add ..................... Pops two values from the stack and pushes the result o
 asl ..................... Shifts a 32-bit integer stored in the accumulator one bit to the left
 asr ..................... Shifts a 32-bit integer stored in the accumulator one bit to the right
 
+br <label> .............. Unconditionally jumps execution to <label>
+brc <label> ............. Jumps execution to <label> iff the Carry flag is set
+brt <label> ............. Jumps execution to <label> iff the Comparison flag is set
+
 call <func> ............. Calls a function.  The function's arguments must be pushed to the stack before this instruction
 clc ..................... Clears the Carry flag
+comp .................... Sets the Comparison flag iff the top two elements on the stack are equal
+comp.gt ................. Sets the Comparison flag iff the top element on the stack is greater than the second-to-top element
+comp.lt ................. Sets the Comparison flag iff the top element on the stack is less than the second-to-top element
 conv <type> ............. Pops a value from the stack, converts it to <type>, then pushes the result
-conva <type> ............ Converts the value in the accumulator to the given type
+conv.a <type> ........... Converts the value in the accumulator to the given type
 
+dec <var> ............... Decrements an integer stored in <var> by one
 div ..................... Pops two values from the stack and pushes the result of the first divided by the second
 dup ..................... Duplicates the value at the top of the stack
 
 exit .................... Stops the program
 
+inc <var> ............... Increments an integer stored in <var> by one
 interp <str> ............ Pops a 32-bit integer from the stack.  Using that value, N objects will be popped from the stack and used in formatting the input <str> string
 
 ld <var> ................ Pushes the value contained in <var> to the stack
-lda <var> ............... Stores the value in the accumulator in <var>
+lda <var> ............... Stores <var> into the accumulator
 
 mul ..................... Pops two values from the stack and pushes the result of their product
 
+not ..................... Negates the Comparison flag
+
 pop ..................... Pops a value from the stack
-popa .................... Pops a value from the stack and stores it in the accumulator
+pop.a ................... Pops a value from the stack and stores it in the accumulator
 print ................... Pops a string from the stack, then prints it to the console
 print.n ................. Pops a string from the stack, then prints it to the console with a newline appended
 push <arg> .............. Pushes <arg> to the stack
-pusha ................... Pushes the value contained in the accumulator to the stack
-pushc ................... Pushes the value of the Carry flag to the stack
+push.a .................. Pushes the value contained in the accumulator to the stack
+push.c .................. Pushes the value of the Carry flag to the stack
 
 ret ..................... Returns from a method
 rol ..................... Shifts a 32-bit integer stored in the accumulator 1 bit to the left and updates the Carry flag
 ror ..................... Shifts a 32-bit integer stored in the accumulator 1 bit to the right and updates the Carry flag
 
 st <var> ................ Stores the value at the top of the stack to <var>
-sta <var> ............... Stores <var> into the accumulator
+sta <var> ............... Stores the value in the accumulator to <var>
 stc ..................... Sets the Carry flag
 sub ..................... Pops two values from the stack and pushes the result of the second subtracted from the first
 

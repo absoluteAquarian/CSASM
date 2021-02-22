@@ -112,6 +112,7 @@ namespace CSASM{
 						".local" => Tokens.LocalVar,
 						".global" => Tokens.GlobalVar,
 						"end" => Tokens.MethodEnd,
+						".lbl" => Tokens.Label,
 						":" when PreviousTokenMatches(AsmTokenType.VariableName) => Tokens.VariableSeparator,
 						_ when Tokens.instructionWords.Contains(word) => Tokens.InstructionNoParameter,
 						_ when Tokens.instructionWordsWithParameters.Contains(word) => Tokens.Instruction,
@@ -121,6 +122,7 @@ namespace CSASM{
 						_ when PreviousTokenMatches(AsmTokenType.VariableTokenSeparator) => Tokens.VariableType,
 						_ when PreviousTokenMatches(AsmTokenType.Instruction) => Tokens.InstructionOperand,
 						_ when PreviousTokenMatches(AsmTokenType.MethodIndicator) => Tokens.MethodName,
+						_ when PreviousTokenMatches(AsmTokenType.Label) => Tokens.LabelName,
 						null => throw new Exception("Unknown word token"),
 						_ => throw new CompileException(line: i, $"\"{word}\" was not a valid token or was in an invalid location")
 					};
@@ -132,9 +134,15 @@ namespace CSASM{
 					else if(token.token == null)
 						token.token = word;
 
-					//Verify that method and variable names are valid
-					if((token.type == AsmTokenType.MethodName || token.type == AsmTokenType.VariableName) && !CodeGenerator.IsValidLanguageIndependentIdentifier(token.token))
-						throw new CompileException(line: i, $"{(token.type == AsmTokenType.MethodName ? "Function" : "Variable")} name was invalid");
+					//Verify that method, variable and label names are valid
+					switch(token.type){
+						case AsmTokenType.MethodName:
+						case AsmTokenType.VariableName:
+						case AsmTokenType.LabelName:
+							if(!CodeGenerator.IsValidLanguageIndependentIdentifier(token.token))
+								throw new CompileException(line: i, $"{(token.type == AsmTokenType.MethodName ? "Function" : "Variable")} name was invalid");
+							break;
+					}
 
 					tokens[i].Add(token);
 				}

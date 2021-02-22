@@ -177,7 +177,13 @@ namespace CSASM{
 			sb.AppendLine("public static byte Carry{");
 			sb.Indent();
 			sb.AppendLine("get{ return (byte)(flags & 0x01); }");
-			sb.AppendLine("set{ Verify(value); flags = (byte)(flags & ~0xfe); flags |= value; }");
+			sb.AppendLine("set{ Verify(value); flags = (byte)((flags & ~0x01) | value); }");
+			sb.Outdent();
+			sb.AppendLine("}");
+			sb.AppendLine("public static byte Comparison{");
+			sb.Indent();
+			sb.AppendLine("get{ return (byte)(flags & 0x02); }");
+			sb.AppendLine("set{ Verify(value); flags = (byte)((flags & ~0x02) | (value << 1)); }");
 			sb.Outdent();
 			sb.AppendLine("}");
 			sb.AppendLine("private static void Verify(byte input){");
@@ -199,13 +205,34 @@ namespace CSASM{
 				"if(_reg_accumulator != null && _reg_accumulator is int)\n" +
 					"\t_reg_accumulator <<= 1;\n" +
 				"else\n" +
-					"\tthrow new AccumulatorException(\"asl\", _reg_accumulator == null ? \"null reference\" : _reg_accumulator.GetType().Name);");
+					"\tthrow new AccumulatorException(\"asl\", _reg_accumulator == null ? \"null reference\" : ((object)_reg_accumulator).GetType().Name);");
 
 			WriteInstructionFunc(sb, "asr", null,
 				"if(_reg_accumulator != null && _reg_accumulator is int)\n" +
 					"\t_reg_accumulator >>= 1;\n" +
 				"else\n" +
-					"\tthrow new AccumulatorException(\"asr\", _reg_accumulator == null ? \"null reference\" : _reg_accumulator.GetType().Name);");
+					"\tthrow new AccumulatorException(\"asr\", _reg_accumulator == null ? \"null reference\" : ((object)_reg_accumulator).GetType().Name);");
+
+			WriteInstructionFunc(sb, "comp", null,
+				"_reg_d1 = stack.Pop();\n" +
+				"_reg_d2 = stack.Pop();\n" +
+				"stack.Push(_reg_d2);\n" +
+				"stack.Push(_reg_d1);\n" +
+				"Ops.Comparison = (byte)(_reg_d1 == _reg_d2 ? 1 : 0);");
+
+			WriteInstructionFunc(sb, "comp_gt", null,
+				"_reg_d1 = stack.Pop();\n" +
+				"_reg_d2 = stack.Pop();\n" +
+				"stack.Push(_reg_d2);\n" +
+				"stack.Push(_reg_d1);\n" +
+				"Ops.Comparison = (byte)(_reg_d1 > _reg_d2 ? 1 : 0);");
+
+			WriteInstructionFunc(sb, "comp_lt", null,
+				"_reg_d1 = stack.Pop();\n" +
+				"_reg_d2 = stack.Pop();\n" +
+				"stack.Push(_reg_d2);\n" +
+				"stack.Push(_reg_d1);\n" +
+				"Ops.Comparison = (byte)(_reg_d1 < _reg_d2 ? 1 : 0);");
 
 			WriteInstructionFunc(sb, "div", null,
 				"_reg_d1 = stack.Pop();\n" +
@@ -236,18 +263,16 @@ namespace CSASM{
 					"\tbyte c = Carry;\n" +
 					"\tCarry = (byte)((_reg_accumulator & (1 << 31)) != 0 ? 1 : 0);\n" +
 					"\t_reg_accumulator = (_reg_accumulator << 1) | c;\n" +
-					"\tCarry = 0;\n" +
 				"}else\n" +
-					"\tthrow new AccumulatorException(\"rol\", _reg_accumulator == null ? \"null reference\" : _reg_accumulator.GetType());");
+					"\tthrow new AccumulatorException(\"rol\", _reg_accumulator == null ? \"null reference\" : ((object)_reg_accumulator).GetType().Name);");
 
 			WriteInstructionFunc(sb, "ror", null,
 				"if(_reg_accumulator != null && _reg_accumulator is int){\n" +
 					"\tbyte c = Carry;\n" +
 					"\tCarry = (byte)(_reg_accumulator & 1);\n" +
 					"\t_reg_accumulator = (_reg_accumulator >> 1) | (c << 31);\n" +
-					"\tCarry = 0;\n" +
 				"}else\n" +
-					"\tthrow new AccumulatorException(\"rol\", _reg_accumulator == null ? \"null reference\" : _reg_accumulator.GetType());");
+					"\tthrow new AccumulatorException(\"rol\", _reg_accumulator == null ? \"null reference\" : ((object)_reg_accumulator).GetType().Name);");
 
 			WriteInstructionFunc(sb, "sub", null,
 				"_reg_d1 = stack.Pop();\n" +
@@ -389,6 +414,20 @@ namespace CSASM{
 
 						break;
 					}
+
+					if(token.type == AsmTokenType.Label){
+						if(t != 0)
+							throw new CompileException(line: i, $"A \"{token.token}\" token had other tokens before it");
+						if(line.Count != 2)
+							throw new CompileException(line: i, "Label declaration was invalid");
+
+						int old = sb.IndentStride;
+						sb.Outdent();
+						sb.AppendLine($"{line[1].token}:");
+						sb.IndentTo(old);
+
+						break;
+					}
 				}
 			}
 		}
@@ -409,22 +448,37 @@ namespace CSASM{
 					"$3" => "Ops._reg_d3",
 					"$4" => "Ops._reg_d4",
 					"$5" => "Ops._reg_d5",
-					"($a)" => "string.Format(\"{0}\", Ops._reg_accumulator)",
-					"($1)" => "string.Format(\"{0}\", Ops._reg_d1)",
-					"($2)" => "string.Format(\"{0}\", Ops._reg_d2)",
-					"($3)" => "string.Format(\"{0}\", Ops._reg_d3)",
-					"($4)" => "string.Format(\"{0}\", Ops._reg_d4)",
-					"($5)" => "string.Format(\"{0}\", Ops._reg_d5)",
 					_ => argToken
 				};
 			}
 
 			switch(token.token){
+				case "br":
+					sb.AppendLine($"goto {argToken};");
+					break;
+				case "brc":
+					sb.AppendLine("if(Ops.Carry != 0)");
+					sb.Indent();
+					sb.AppendLine($"goto {argToken};");
+					sb.Outdent();
+					break;
+				case "brt":
+					sb.AppendLine("if(Ops.Comparison != 0)");
+					sb.Indent();
+					sb.AppendLine($"goto {argToken};");
+					sb.Outdent();
+					break;
 				case "call":
 					sb.AppendLine($"{argToken}();");
 					break;
 				case "clc":
 					sb.AppendLine("Ops.Carry = 0;");
+					break;
+				case "comp.gt":
+					sb.AppendLine("Ops.func_comp_gt();");
+					break;
+				case "comp.lt":
+					sb.AppendLine("Ops.func_comp_lt();");
 					break;
 				case "conv":
 					sb.AppendLine($"Ops.stack.Push(({Utility.GetCSharpType(line[1])})Ops.stack.Pop());");
@@ -432,8 +486,14 @@ namespace CSASM{
 				case "conva":
 					sb.AppendLine($"Ops._reg_accumulator = ({Utility.GetCSharpType(line[1])})Ops._reg_accumulator;");
 					break;
+				case "dec":
+					sb.AppendLine($"{argToken}--;");
+					break;
 				case "exit":
 					sb.AppendLine("Environment.Exit(0);");
+					break;
+				case "inc":
+					sb.AppendLine($"{argToken}++;");
 					break;
 				case "interp":
 					sb.AppendLine($"Ops.func_interp({argToken});");
@@ -443,6 +503,9 @@ namespace CSASM{
 					break;
 				case "lda":
 					sb.AppendLine($"{argToken} = Ops._reg_accumulator;");
+					break;
+				case "not":
+					sb.AppendLine("Ops.Comparison = (byte)(1 - Ops.Comparison);");
 					break;
 				case "pop":
 					sb.AppendLine("Ops.stack.Pop();");
@@ -459,10 +522,10 @@ namespace CSASM{
 				case "push":
 					sb.AppendLine($"Ops.stack.Push({argToken});");
 					break;
-				case "pusha":
+				case "push.a":
 					sb.AppendLine("Ops.stack.Push(Ops._reg_accumulator);");
 					break;
-				case "pushc":
+				case "push.c":
 					sb.AppendLine("Ops.stack.Push(Ops.Carry);");
 					break;
 				case "ret":
