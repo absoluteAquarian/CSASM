@@ -315,7 +315,7 @@ namespace CSASM{
 			WriteInstructionFunc(sb, "sub", null,
 				"_reg_d1 = stack.Pop();\n" +
 				"stack.Push(stack.Pop() - _reg_d1);");
-			//Instructino method end
+			//Instruction method end
 			sb.Outdent();
 			sb.AppendLine("}");
 			//Ops class end

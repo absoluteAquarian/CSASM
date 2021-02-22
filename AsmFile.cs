@@ -23,13 +23,13 @@ namespace CSASM{
 			using StreamReader reader = new StreamReader(File.OpenRead(file));
 
 			int index;
-			string[] lines = reader.ReadToEnd()				//Get the file's text
-				.Replace("\r\n", "\n")						//Normalize the newlines
-				.Split('\n')								//Separate the lines
-				.Select(s => (index = s.IndexOf(';')) >= 0	//Remove any comments
+			string[] lines = reader.ReadToEnd()             //Get the file's text
+				.Replace("\r\n", "\n")                      //Normalize the newlines
+				.Split('\n')                                //Separate the lines
+				.Select(s => (index = s.IndexOf(';')) >= 0  //Remove any comments
 					? s.Substring(0, index)
 					: s)
-				.Select(s => s.Trim())						//Remove any extra leading/trailing whitespace
+				.Select(s => s.Trim())                      //Remove any extra leading/trailing whitespace
 				.ToArray();
 
 			//Convert the lines into a series of tokens
@@ -44,11 +44,11 @@ namespace CSASM{
 
 					//Do a generic check first for the next token
 					if((i < tokens.Count - 1 || t < lineTokens.Count - 1) && token.validNextTokens != null){
-						AsmToken next = t < lineTokens.Count - 1	//More tokens left on this line
+						AsmToken next = t < lineTokens.Count - 1    //More tokens left on this line
 							? lineTokens[t + 1]
-							: i < tokens.Count - 1					//More lines left
+							: i < tokens.Count - 1                  //More lines left
 								? tokens[i + 1][0]
-								: default;							//Current token is the last token in the collection
+								: default;                          //Current token is the last token in the collection
 
 						if(next.type == AsmTokenType.None)
 							throw new CompileException(line: i, $"Expected an operand for token \"{name}\", got EOF instead");
@@ -85,10 +85,10 @@ namespace CSASM{
 				string line = lines[i];
 
 				//This algorithm was taken from https://stackoverflow.com/a/14655199/8420233
-				string[] words = line.Split('"')												//Split on quotes first
+				string[] words = line.Split('"')                                                //Split on quotes first
 					.Select((element, index) => index % 2 == 0
-						? element.Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries)	//Then only split on spaces within quoted phrases
-						: new string[] { "\"" + element + "\"" })								//Otherwise, just use the whole phrase
+						? element.Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries)   //Then only split on spaces within quoted phrases
+						: new string[] { "\"" + element + "\"" })                               //Otherwise, just use the whole phrase
 					.SelectMany(element => element).ToArray();
 				for(int w = 0; w < words.Length; w++){
 					string word = words[w];
