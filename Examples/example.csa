@@ -31,6 +31,22 @@ func main:
 	push 1
 	interp ($a)
 	print.n
+	
+	; Carry example
+	sta 151
+	pusha
+	push 1
+	interp "Accumulator before ROR: 0x{0:X4}"
+	print.n
+	ror
+	pusha
+	push 1
+	interp "Accumulator after ROR: 0x{0:X4}"
+	print.n
+	pushc
+	push 1
+	interp "Carry flag: {0}"
+	print.n
 	exit
 end
 

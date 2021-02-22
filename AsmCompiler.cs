@@ -1,9 +1,11 @@
 ﻿using Microsoft.CSharp;
+using Microsoft.CSharp.RuntimeBinder;
 using System;
 using System.CodeDom.Compiler;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Runtime.CompilerServices;
 using System.Text;
 
 namespace CSASM{
@@ -81,7 +83,7 @@ namespace CSASM{
 			if(results.Errors.Count > 0){
 				Console.WriteLine("An error occured while compiling the transpiled CSASM code:\n");
 				foreach(CompilerError error in results.Errors){
-					Console.WriteLine($"{(error.IsWarning ? "Warning" : "Error")} {error.ErrorNumber} on line {error.Line}:" +
+					Console.WriteLine($"{(error.IsWarning ? "Warning" : "Error")} {error.ErrorNumber} on line {error.Line}, char {error.Column}:" +
 						$"\n\t{error.ErrorText}\n");
 				}
 
@@ -97,6 +99,7 @@ namespace CSASM{
 			//Header boilerplate
 			sb.AppendLine("using System;");
 			sb.AppendLine("using System.Collections.Generic;");
+			sb.AppendLine("using System.Runtime;");
 
 			//Find the assembly name value and stack size tokens and apply them if found
 			bool nameSet = false, stackSet = false;
@@ -144,6 +147,22 @@ namespace CSASM{
 			sb.Outdent();
 			sb.AppendLine("}");
 			//Program class end
+			//Exception classes start
+			sb.AppendLine("public class AccumulatorException : Exception{");
+			sb.Indent();
+			sb.AppendLine("public AccumulatorException(string instr, string accType) : base(\"(Instruction: \" + instr + \") Accumulator contained an invalid type: \" + accType){ }");
+			sb.Outdent();
+			sb.AppendLine("}");
+			//Exception classes end
+			//Utility class start
+			sb.AppendLine("public static class Utility{");
+			sb.Indent();
+			sb.AppendLine("public static bool IsInteger(this Type type){ return type.IsPrimitive && type != typeof(char) && type != typeof(IntPtr) && type != typeof(UIntPtr); }");
+			sb.AppendLine("public static bool IsFloatingPoint(this Type type){ return type == typeof(float) || type == typeof(double) || type == typeof(decimal); }");
+			sb.AppendLine("public static int GetAccumulatorSize(){ return BitConverter.GetBytes(Ops._reg_accumulator).Length; }");
+			sb.Outdent();
+			sb.AppendLine("}");
+			//Utility class end
 			//Ops class start
 			sb.AppendLine("public static class Ops{");
 			sb.Indent();
@@ -155,12 +174,38 @@ namespace CSASM{
 			sb.AppendLine("public static dynamic _reg_d5;");
 			sb.AppendLine("public static dynamic _reg_accumulator = 0;");
 			sb.AppendLine("public static byte flags = 0;");
+			sb.AppendLine("public static byte Carry{");
+			sb.Indent();
+			sb.AppendLine("get{ return (byte)(flags & 0x01); }");
+			sb.AppendLine("set{ Verify(value); flags = (byte)(flags & ~0xfe); flags |= value; }");
+			sb.Outdent();
+			sb.AppendLine("}");
+			sb.AppendLine("private static void Verify(byte input){");
+			sb.Indent();
+			sb.AppendLine("if(input > 1)");
+			sb.Indent();
+			sb.AppendLine("throw new ArgumentException(\"Value was invalid: \" + input, \"input\");");
+			sb.Outdent();
+			sb.AppendLine("}");
+			sb.Outdent();
 			//Instruction methods start
 			WriteInstructionFunc(sb, "abs", null,
 				"stack.Push(Math.Abs(stack.Pop()));");
 
 			WriteInstructionFunc(sb, "add", null,
 				"stack.Push(stack.Pop() + stack.Pop());");
+
+			WriteInstructionFunc(sb, "asl", null,
+				"if(_reg_accumulator != null && _reg_accumulator is int)\n" +
+					"\t_reg_accumulator <<= 1;\n" +
+				"else\n" +
+					"\tthrow new AccumulatorException(\"asl\", _reg_accumulator == null ? \"null reference\" : _reg_accumulator.GetType().Name);");
+
+			WriteInstructionFunc(sb, "asr", null,
+				"if(_reg_accumulator != null && _reg_accumulator is int)\n" +
+					"\t_reg_accumulator >>= 1;\n" +
+				"else\n" +
+					"\tthrow new AccumulatorException(\"asr\", _reg_accumulator == null ? \"null reference\" : _reg_accumulator.GetType().Name);");
 
 			WriteInstructionFunc(sb, "div", null,
 				"_reg_d1 = stack.Pop();\n" +
@@ -174,9 +219,9 @@ namespace CSASM{
 			WriteInstructionFunc(sb, "interp", "string str",
 				"var acc = _reg_accumulator;\n" +
 				"_reg_accumulator = (int)stack.Pop();\n" +
-				"_reg_d1 = new List<string>();\n" +
+				"_reg_d1 = new List<object>();\n" +
 				"for(int i = 0; i < _reg_accumulator; i++){\n" +
-					"\t_reg_d1.Add(stack.Pop().ToString());\n" +
+					"\t_reg_d1.Add((object)stack.Pop());\n" +
 				"}\n" +
 				"_reg_accumulator = acc;\n" +
 				"_reg_d1.Reverse();\n" +
@@ -185,6 +230,24 @@ namespace CSASM{
 
 			WriteInstructionFunc(sb, "mul", null,
 				"stack.Push(stack.Pop() * stack.Pop());");
+
+			WriteInstructionFunc(sb, "rol", null,
+				"if(_reg_accumulator != null && _reg_accumulator is int){\n" +
+					"\tbyte c = Carry;\n" +
+					"\tCarry = (byte)((_reg_accumulator & (1 << 31)) != 0 ? 1 : 0);\n" +
+					"\t_reg_accumulator = (_reg_accumulator << 1) | c;\n" +
+					"\tCarry = 0;\n" +
+				"}else\n" +
+					"\tthrow new AccumulatorException(\"rol\", _reg_accumulator == null ? \"null reference\" : _reg_accumulator.GetType());");
+
+			WriteInstructionFunc(sb, "ror", null,
+				"if(_reg_accumulator != null && _reg_accumulator is int){\n" +
+					"\tbyte c = Carry;\n" +
+					"\tCarry = (byte)(_reg_accumulator & 1);\n" +
+					"\t_reg_accumulator = (_reg_accumulator >> 1) | (c << 31);\n" +
+					"\tCarry = 0;\n" +
+				"}else\n" +
+					"\tthrow new AccumulatorException(\"rol\", _reg_accumulator == null ? \"null reference\" : _reg_accumulator.GetType());");
 
 			WriteInstructionFunc(sb, "sub", null,
 				"_reg_d1 = stack.Pop();\n" +
@@ -207,6 +270,7 @@ namespace CSASM{
 		}
 
 		private static void WriteInstructionFunc(CodeBuilder sb, string instr, string parameters, string body){
+			int beforeStride = sb.IndentStride;
 			sb.AppendLine($"public static void func_{instr}({parameters ?? ""}){{");
 			sb.Indent();
 			int startIndent = sb.IndentStride;
@@ -221,7 +285,7 @@ namespace CSASM{
 				sb.IndentTo(startIndent + indents);
 				sb.AppendLine(line);
 			}
-			sb.Outdent();
+			sb.IndentTo(beforeStride);
 			sb.AppendLine("}");
 		}
 
@@ -356,20 +420,17 @@ namespace CSASM{
 			}
 
 			switch(token.token){
-				case "abs":
-					sb.AppendLine("Ops.func_abs();");
-					break;
-				case "add":
-					sb.AppendLine("Ops.func_add();");
-					break;
 				case "call":
 					sb.AppendLine($"{argToken}();");
 					break;
-				case "div":
-					sb.AppendLine("Ops.func_div();");
+				case "clc":
+					sb.AppendLine("Ops.Carry = 0;");
 					break;
-				case "dup":
-					sb.AppendLine("Ops.func_dup();");
+				case "conv":
+					sb.AppendLine($"Ops.stack.Push(({Utility.GetCSharpType(line[1])})Ops.stack.Pop());");
+					break;
+				case "conva":
+					sb.AppendLine($"Ops._reg_accumulator = ({Utility.GetCSharpType(line[1])})Ops._reg_accumulator;");
 					break;
 				case "exit":
 					sb.AppendLine("Environment.Exit(0);");
@@ -383,9 +444,6 @@ namespace CSASM{
 				case "lda":
 					sb.AppendLine($"{argToken} = Ops._reg_accumulator;");
 					break;
-				case "mul":
-					sb.AppendLine("Ops.func_mul();");
-					break;
 				case "pop":
 					sb.AppendLine("Ops.stack.Pop();");
 					break;
@@ -393,16 +451,19 @@ namespace CSASM{
 					sb.AppendLine("Ops._reg_accumulator = Ops.stack.Pop();");
 					break;
 				case "print":
-					sb.AppendLine("Console.Write(Ops.stack.Pop());");
+					sb.AppendLine("Console.Write(Ops.stack.Pop().ToString());");
 					break;
 				case "print.n":
-					sb.AppendLine("Console.WriteLine(Ops.stack.Pop());");
+					sb.AppendLine("Console.WriteLine(Ops.stack.Pop().ToString());");
 					break;
 				case "push":
 					sb.AppendLine($"Ops.stack.Push({argToken});");
 					break;
 				case "pusha":
 					sb.AppendLine("Ops.stack.Push(Ops._reg_accumulator);");
+					break;
+				case "pushc":
+					sb.AppendLine("Ops.stack.Push(Ops.Carry);");
 					break;
 				case "ret":
 					sb.AppendLine("return;");
@@ -413,11 +474,15 @@ namespace CSASM{
 				case "sta":
 					sb.AppendLine($"Ops._reg_accumulator = {argToken};");
 					break;
-				case "sub":
-					sb.AppendLine("Ops.func_sub();");
+				case "stc":
+					sb.AppendLine("Ops.Carry = 1;");
 					break;
 				default:
-					throw new CompileException(line: i, "Unknown instruction: " + token.token);
+					if(Tokens.instructionWords.Contains(token.token))
+						sb.AppendLine($"Ops.func_{token.token}();");
+					else
+						throw new CompileException(line: i, "Unknown instruction: " + token.token);
+					break;
 			}
 		}
 
@@ -429,8 +494,9 @@ namespace CSASM{
 			//Reference for Stack<T>
 			parameters.ReferencedAssemblies.Add(typeof(Stack<>).Assembly.Location);
 			//Reference for dynamic
-			parameters.ReferencedAssemblies.Add(typeof(System.Runtime.CompilerServices.DynamicAttribute).Assembly.Location);
-			parameters.ReferencedAssemblies.Add(typeof(Microsoft.CSharp.RuntimeBinder.Binder).Assembly.Location);
+			parameters.ReferencedAssemblies.Add(typeof(DynamicAttribute).Assembly.Location);
+			parameters.ReferencedAssemblies.Add(typeof(Binder).Assembly.Location);
+			parameters.ReferencedAssemblies.Add(typeof(BitConverter).Assembly.Location);
 
 			CSharpCodeProvider code = new CSharpCodeProvider();
 			return code.CompileAssemblyFromSource(parameters, source);

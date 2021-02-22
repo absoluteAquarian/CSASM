@@ -40,21 +40,30 @@ namespace CSASM{
 		public static readonly List<string> instructionWords = new List<string>(){
 			"abs",
 			"add",
+			"asl",
+			"asr",
+			"clc",
 			"div",
 			"dup",
 			"exit",
+			"ldc",
 			"mul",
 			"pop",
 			"popa",
 			"print",
 			"print.n",
 			"pusha",
+			"pushc",
 			"ret",
+			"rol",
+			"ror",
 			"sub"
 		};
 		//Instructions with an operand
 		public static readonly List<string> instructionWordsWithParameters = new List<string>(){
 			"call",
+			"conv",
+			"conva",
 			"interp",
 			"ld",
 			"lda",
