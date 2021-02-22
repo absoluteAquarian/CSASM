@@ -14,7 +14,10 @@ namespace CSASM{
 		public static AsmFile ParseSourceFile(string file){
 			//If the file doesn't have the ".csa" extension, abort early
 			if(Path.GetExtension(file) != ".csa")
-				throw new IOException($"Source file was not a CSASM file: {Path.GetFileName(file)}");
+				throw new CompileException($"Source file was not a CSASM file: {Path.GetFileName(file)}");
+
+			if(!File.Exists(file))
+				throw new CompileException("Source file does not exist");
 
 			//Open the file and parse it
 			using StreamReader reader = new StreamReader(File.OpenRead(file));
@@ -101,6 +104,10 @@ namespace CSASM{
 						//Not the first token in this line
 						return tokens[i][w - 1].type == type;
 					}
+
+					//Check if an instruction was already processed for this line
+					if(w > 1 && tokens[i][0].type == AsmTokenType.Instruction)
+						throw new CompileException(line: i, "Too many tokens");
 
 					//Add the next token
 					var token = word switch{

@@ -93,11 +93,9 @@ func branchmethod:
 	push 1
 	interp "{0}"
 	print
-	; Exit the loop if the counter >= the accumulator
+	; Exit the loop if the counter == the accumulator
 	push $a
 	push counter
-	comp.gt
-	brt loopEnd
 	comp
 	brt loopEnd
 	inc counter

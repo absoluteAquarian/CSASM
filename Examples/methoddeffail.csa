@@ -1,0 +1,13 @@
+.asm_name MethodDefinitionFail
+
+func main:
+	; Do nothing
+	ret
+end
+
+func method:
+	lda 50
+
+func method2:
+	ret
+end

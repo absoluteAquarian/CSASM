@@ -1,0 +1,6 @@
+.asm_name TokenFail
+
+func main:
+	; Too many tokens on one line
+	lda 150 "hello"
+end

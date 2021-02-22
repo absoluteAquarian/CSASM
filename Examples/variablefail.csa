@@ -1,0 +1,17 @@
+.asm_name VariableFail
+
+.global i : i32
+
+func main:
+	; Local variables with the same name take priority over global variables
+	.local i : 32
+	
+	; However, local variables cannot share the same name
+	; Uncomment this line to have the error be reported
+	; .local i : i8
+	ret
+end
+
+; Global variables must have unique names as well
+.global v : str
+.global v : char

@@ -27,6 +27,12 @@ namespace CSASM{
 			try{
 				return Compile(args);
 			}catch(Exception ex){
+				if(ex is CompileException){
+					Console.WriteLine(ex.Message);
+
+					return -1;
+				}
+
 				//Make the line "in" lines shorter
 				int index;
 				string[] lines = ex.ToString().Replace("\r\n", "\n")
@@ -95,6 +101,38 @@ namespace CSASM{
 		}
 
 		private static string TranspileCode(AsmFile source){
+			//If no "main" method is defined, throw an error
+			if(source.tokens.TrueForAll(list => list.Count > 0 && list.TrueForAll(t => t.type != AsmTokenType.MethodName || t.token != "main")))
+				throw new CompileException("Function \"main\" was not defined");
+			//If there are multiple declarations of a method or variable, throw an error
+			List<string> methods = new List<string>();
+			List<string> globalVars = new List<string>();
+			List<string> localVars = new List<string>();
+			for(int i = 0; i < source.tokens.Count; i++){
+				var tokens = source.tokens[i];
+				for(int t = 0; t < tokens.Count; t++){
+					var token = tokens[t];
+					if(token.type == AsmTokenType.MethodName){
+						if(!methods.Contains(token.token))
+							methods.Add(token.token);
+						else
+							throw new CompileException(line: i, $"Duplicate definition of function \"{token.token}\"");
+					}else if(token.type == AsmTokenType.MethodEnd){
+						localVars.Clear();
+					}else if(t > 0 && tokens[0] == Tokens.GlobalVar && tokens[t].type == AsmTokenType.VariableName){
+						if(!globalVars.Contains(token.token))
+							globalVars.Add(token.token);
+						else
+							throw new CompileException(line: i, $"Duplicate definition of global variable \"{token.token}\"");
+					}else if(t > 0 && tokens[0] == Tokens.LocalVar && tokens[t].type == AsmTokenType.VariableName){
+						if(!localVars.Contains(token.token))
+							localVars.Add(token.token);
+						else
+							throw new CompileException(line: i, $"Duplicate definition of local variable \"{token.token}\"");
+					}
+				}
+			}
+
 			CodeBuilder sb = new CodeBuilder(2000);
 			//Header boilerplate
 			sb.AppendLine("using System;");
@@ -317,8 +355,15 @@ namespace CSASM{
 		private static void CheckMethodEnd(AsmFile source, CodeBuilder sb, bool creatingMethod, int i){
 			static bool Invalid(AsmToken token) => token.token != "end";
 
+			bool PreviousTokenIsInvalid(){
+				int t = i - 1;
+				while(t >= 0 && source.tokens[t].Count == 0)
+					t--;
+				return t < 0 ? false : Invalid(source.tokens[t][0]);
+			}
+
 			if(creatingMethod){
-				if((i > 0 && Invalid(source.tokens[i - 1][0])) || (i > 1 && Invalid(source.tokens[i - 2][0]))){
+				if(i > 0 && PreviousTokenIsInvalid()){
 					//Previous method body was incomplete
 					//Move back up until we get to the method declaration for the previous method
 					while(source.tokens[--i].TrueForAll(t => t != Tokens.Func));
