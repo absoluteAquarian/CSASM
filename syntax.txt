@@ -67,16 +67,12 @@ asl ..................... Shifts a 32-bit integer stored in the accumulator one 
 asr ..................... Shifts a 32-bit integer stored in the accumulator one bit to the right
 
 br <label> .............. Unconditionally jumps execution to <label>
-brc <label> ............. Jumps execution to <label> iff the Carry flag is set
-brnc <label> ............ Jumps execution to <label> iff the Carry flag is cleared
-brnull <label> .......... Jumps execution to <label> iff the value on the top of the stack is null
-brnull.a <label> ........ Jumps execution to <label> iff the value in the accumulator is null
-brf <label> ............. Jumps execution to <label> iff the Comparison flag is cleared
-brt <label> ............. Jumps execution to <label> iff the Comparison flag is set
+brfalse <label> ......... Jumps execution to <label> iff the accumulator contains a null, zero or an empty string
+brtrue <label> .......... Jumps execution to <label> iff the accumulator contains a non-zero value or a non-empty string
 
 call <func> ............. Calls a function.  The function's arguments must be pushed to the stack before this instruction
-clc ..................... Clears the Carry flag
-clo ..................... Clears the Comparison flag
+clf.c ................... Clears the Carry flag
+clf.o ................... Clears the Comparison flag
 comp .................... Sets the Comparison flag iff the top two elements on the stack are equal
 comp.gt ................. Sets the Comparison flag iff the top element on the stack is greater than the second-to-top element
 comp.lt ................. Sets the Comparison flag iff the top element on the stack is less than the second-to-top element
@@ -99,8 +95,8 @@ lda <var> ............... Stores <var> into the accumulator
 
 mul ..................... Pops two values from the stack and pushes the result of their product
 
-not ..................... Negates the Comparison flag
 not.c ................... Negates the Carry flag
+not.o ................... Negates the Comparison flag
 
 pop ..................... Pops a value from the stack
 pop.a ................... Pops a value from the stack and stores it in the accumulator
@@ -116,7 +112,8 @@ ror ..................... Shifts a 32-bit integer stored in the accumulator 1 bi
 
 st <var> ................ Pops a value from the stack and stores it in <var>
 sta <var> ............... Stores the value in the accumulator to <var>
-stc ..................... Sets the Carry flag
+stf.c ................... Sets the Carry flag
+stf.o ................... Sets the Comparison flag
 sub ..................... Pops two values from the stack and pushes the result of the second subtracted from the first
 
 throw <str> ............. Throws a "ThrowException" with whose message is <str>
@@ -127,10 +124,13 @@ type.a .................. Pushes a string representing the type of the object in
 DEFINED REGISTERS
 =================
 
-$a ...................... The accumulator.  Accessed/modified using the "lda"/"sta" instructions
+$a ...................... The accumulator
 
 $1 ...................... A temporary register.  Can be used to store any value, but the value is likely to be clobbered by instructions or called functions.
 $2 ......................   ---
-$3 ......................   ---
+$3 ...................... A static register.  Can be used to store any value and, unlike $1 or $2, will not be clobbered by instructions.
 $4 ......................   ---
 $5 ......................   ---
+
+$f.c .................... The Carry flag
+$f.o .................... The Comparison flag

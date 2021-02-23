@@ -26,16 +26,14 @@ func main:
 	
 	; Based on the result of the "comp" instruction, print whether the top two values
 	;   on the stack are equal
-	brt ifTrue
-	br ifFalse
-.lbl ifTrue
+	push $f.o
+	brfalse ifFalse
 	push "Equal"
-	print.n
 	br next
 .lbl ifFalse
 	push "Not Equal"
-	print.n
 .lbl next
+	print.n
 	; Check the second thing's type pushed to the stack at the beginning of the stack
 	; Pop the element from the stack so that it can be used repeatedly
 	pop.a
@@ -57,21 +55,26 @@ func main:
 	is.a u16
 	is.a u32
 	is.a u64
-	brt typeIsInteger
+	; Push the comparison flag, since the "is.a" instruction will set it if it was successful
+	push $f.o
+	brtrue typeIsInteger
 	
 	; Clear the comparison flag
-	clo
+	clf.o
 	is.a f32
 	is.a f64
 	is.a f128
-	brt typeIsFloat
+	push $f.o
+	brtrue typeIsFloat
 	
-	clo
+	clf.o
 	is.a char
 	is.a str
-	brt typeIsOther
+	push $f.o
+	brtrue typeIsOther
 	
-	brnull.a typeIsNull
+	push.a
+	brfalse typeIsNull
 	
 	type.a
 	push 1
@@ -92,9 +95,9 @@ func main:
 .lbl afterType
 	print.n
 	
-	clo
+	clf.o
 	; Print if the remaining value on the stack is null or not
-	brnull isNull
+	brfalse isNull
 	push "First value on the stack is not null"
 	br printNull
 .lbl isNull

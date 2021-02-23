@@ -238,9 +238,13 @@ namespace CSASM{
 			sb.Indent();
 			sb.AppendLine("Console.WriteLine(\"AccumulatorException thrown: \" + aex.Message);");
 			sb.Outdent();
+			sb.AppendLine("}catch(ThrowException tex){");
+			sb.Indent();
+			sb.AppendLine("Console.WriteLine(\"ThrowException thrown: \" + tex.Message);");
+			sb.Outdent();
 			sb.AppendLine("}catch(Exception ex){");
 			sb.Indent();
-			sb.AppendLine("Console.WriteLine(ex.GetType().Name + \" thrown: \" + ex.Message);");
+			sb.AppendLine("Console.WriteLine(ex.GetType().Name + \" thrown in transpiled code: \" + ex.Message);");
 			sb.Outdent();
 			sb.AppendLine("}");
 			sb.Outdent();
@@ -265,7 +269,7 @@ namespace CSASM{
 			//Utility class start
 			sb.AppendLine("public static class Utility{");
 			sb.Indent();
-			sb.AppendLine("public static bool IsInteger(this Type type){ return type.IsPrimitive && type != typeof(char) && type != typeof(IntPtr) && type != typeof(UIntPtr); }");
+			sb.AppendLine("public static bool IsInteger(this Type type){ return type.IsPrimitive && type != typeof(IntPtr) && type != typeof(UIntPtr); }");
 			sb.AppendLine("public static bool IsFloatingPoint(this Type type){ return type == typeof(float) || type == typeof(double) || type == typeof(decimal); }");
 			sb.AppendLine("public static int GetAccumulatorSize(){ return BitConverter.GetBytes(Ops._reg_accumulator).Length; }");
 			sb.Outdent();
@@ -625,6 +629,8 @@ namespace CSASM{
 					"$3" => "Ops._reg_d3",
 					"$4" => "Ops._reg_d4",
 					"$5" => "Ops._reg_d5",
+					"$f.c" => "Ops.Carry",
+					"$f.o" => "Ops.Comparison",
 					_ => argToken
 				};
 			}
@@ -633,40 +639,16 @@ namespace CSASM{
 				case "br":
 					sb.AppendLine($"goto {argToken};");
 					break;
-				case "brc":
-					sb.AppendLine("if(Ops.Carry != 0)");
-					sb.Indent();
-					sb.AppendLine($"goto {argToken};");
-					sb.Outdent();
-					break;
-				case "brnc":
-					sb.AppendLine("if(Ops.Carry == 0)");
-					sb.Indent();
-					sb.AppendLine($"goto {argToken};");
-					sb.Outdent();
-					break;
-				case "brnull":
+				case "brfalse":
 					sb.AppendLine("Ops._reg_d1 = Ops.stack.Pop();");
-					sb.AppendLine("Ops.stack.Push(Ops._reg_d1);");
-					sb.AppendLine("if(Ops._reg_d1 == null)");
+					sb.AppendLine("if(Ops._reg_d1 == null || ((object)Ops._reg_d1).Equals(string.Empty) || ((object)Ops._reg_d1).Equals(0))");
 					sb.Indent();
 					sb.AppendLine($"goto {argToken};");
 					sb.Outdent();
 					break;
-				case "brnull.a":
-					sb.AppendLine("if(Ops._reg_accumulator == null)");
-					sb.Indent();
-					sb.AppendLine($"goto {argToken};");
-					sb.Outdent();
-					break;
-				case "brf":
-					sb.AppendLine("if(Ops.Comparison == 0)");
-					sb.Indent();
-					sb.AppendLine($"goto {argToken};");
-					sb.Outdent();
-					break;
-				case "brt":
-					sb.AppendLine("if(Ops.Comparison != 0)");
+				case "brtrue":
+					sb.AppendLine("Ops._reg_d1 = Ops.stack.Pop();");
+					sb.AppendLine("if(Ops._reg_d1 != null && !((object)Ops._reg_d1).Equals(string.Empty) && !((object)Ops._reg_d1).Equals(0))");
 					sb.Indent();
 					sb.AppendLine($"goto {argToken};");
 					sb.Outdent();
@@ -674,10 +656,10 @@ namespace CSASM{
 				case "call":
 					sb.AppendLine($"{argToken}();");
 					break;
-				case "clc":
+				case "clf.c":
 					sb.AppendLine("Ops.Carry = 0;");
 					break;
-				case "clo":
+				case "clf.o":
 					sb.AppendLine("Ops.Comparison = 0;");
 					break;
 				case "comp.gt":
@@ -752,8 +734,11 @@ namespace CSASM{
 				case "sta":
 					sb.AppendLine($"Ops._reg_accumulator = {argToken};");
 					break;
-				case "stc":
+				case "stf.c":
 					sb.AppendLine("Ops.Carry = 1;");
+					break;
+				case "stf.o":
+					sb.AppendLine("Ops.Comparison = 1;");
 					break;
 				case "throw":
 					sb.AppendLine($"throw new ThrowException(({argToken}) == null ? \"null\" : ((object)({argToken})).ToString());");

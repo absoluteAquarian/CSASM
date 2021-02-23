@@ -98,7 +98,8 @@ func branchmethod:
 	push $a
 	push counter
 	comp
-	brt loopEnd
+	push $f.o
+	brtrue loopEnd
 	inc counter
 	push ", "
 	print
