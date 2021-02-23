@@ -47,6 +47,7 @@ namespace CSASM{
 			"asl",
 			"asr",
 			"clc",
+			"clo",
 			"comp",
 			"comp.gt",
 			"comp.lt",
@@ -56,6 +57,7 @@ namespace CSASM{
 			"ldc",
 			"mul",
 			"not",
+			"not.c",
 			"pop",
 			"pop.a",
 			"print",
@@ -66,12 +68,18 @@ namespace CSASM{
 			"rol",
 			"ror",
 			"stc",
-			"sub"
+			"sub",
+			"type",
+			"type.a"
 		};
 		//Instructions with an operand
 		public static readonly List<string> instructionWordsWithParameters = new List<string>(){
 			"br",
 			"brc",
+			"brnc",
+			"brnull",
+			"brnull.a",
+			"brf",
 			"brt",
 			"call",
 			"conv",
@@ -79,11 +87,14 @@ namespace CSASM{
 			"dec",
 			"inc",
 			"interp",
+			"is",
+			"is.a",
 			"ld",
 			"lda",
 			"push",
 			"st",
-			"sta"
+			"sta",
+			"throw"
 		};
 
 		public static bool HasOperand(AsmToken token)

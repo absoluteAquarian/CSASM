@@ -8,7 +8,7 @@ func main:
 	push 5
 	st field
 	
-	push "Hello World!"  ; Text printing example
+	push "\"Hello World!\""  ; Text printing example
 	print.n
 
 	call method          ; Method calling example
@@ -49,6 +49,7 @@ func main:
 	print.n
 	
 	call branchmethod
+	
 	exit
 end
 

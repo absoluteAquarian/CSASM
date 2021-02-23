@@ -1,0 +1,105 @@
+.asm_name Branch
+
+func main:
+	; Examples usage of the branching instructions
+	push null
+	push 32
+	; Convert the 32 to an sbyte
+	conv i8
+	push 15
+	push "Hello, World!"
+	
+	; Compare the top two elements on the stack (Equality)
+	comp
+	
+	; Pop the top element and store it to the accumulator
+	pop.a
+	; Print the first value
+	push 1
+	interp "First value: {0}"
+	print.n
+	; Print the second value
+	push.a
+	push 1
+	interp "Second value: {0}"
+	print.n
+	
+	; Based on the result of the "comp" instruction, print whether the top two values
+	;   on the stack are equal
+	brt ifTrue
+	br ifFalse
+.lbl ifTrue
+	push "Equal"
+	print.n
+	br next
+.lbl ifFalse
+	push "Not Equal"
+	print.n
+.lbl next
+	; Check the second thing's type pushed to the stack at the beginning of the stack
+	; Pop the element from the stack so that it can be used repeatedly
+	pop.a
+	push.a
+	push 1
+	interp "Accumulator = {0}"
+	print.n
+	; Get the type of the object in the accumulator, represented as a string (e.g. "i32")
+	type.a
+	push 1
+	interp "Accumulator type: {0}"
+	print.n
+	
+	is.a i8
+	is.a i16
+	is.a i32
+	is.a i64
+	is.a u8
+	is.a u16
+	is.a u32
+	is.a u64
+	brt typeIsInteger
+	
+	; Clear the comparison flag
+	clo
+	is.a f32
+	is.a f64
+	is.a f128
+	brt typeIsFloat
+	
+	clo
+	is.a char
+	is.a str
+	brt typeIsOther
+	
+	brnull.a typeIsNull
+	
+	type.a
+	push 1
+	interp "Unknown type: {0}"
+	pop.a
+	throw $a
+.lbl typeIsInteger
+	push "Type: integer"
+	br afterType
+.lbl typeIsFloat
+	push "Type: floating-point"
+	br afterType
+.lbl typeIsOther
+	push "Type: character or string"
+	br afterType
+.lbl typeIsNull
+	push "Type: null"
+.lbl afterType
+	print.n
+	
+	clo
+	; Print if the remaining value on the stack is null or not
+	brnull isNull
+	push "First value on the stack is not null"
+	br printNull
+.lbl isNull
+	push "First value on the stack is null"
+.lbl printNull
+	print.n
+	ret
+end

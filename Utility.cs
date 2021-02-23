@@ -49,8 +49,27 @@ namespace CSASM{
 				"u64" => "ulong",
 				"u8" => "byte",
 				null => throw new ArgumentNullException("varTypeToken.token"),
-				_ => varTypeToken.token
+				_ => throw new ArgumentException("varTypeToken.token")
 			};
+
+		public static string GetCSharpTypeName(AsmToken token)
+			=> (token.token switch{
+				"char" => typeof(char),
+				"f32" => typeof(float),
+				"f64" => typeof(double),
+				"f128" => typeof(decimal),
+				"i16" => typeof(short),
+				"i32" => typeof(int),
+				"i64" => typeof(long),
+				"i8" => typeof(sbyte),
+				"str" => typeof(string),
+				"u16" => typeof(ushort),
+				"u32" => typeof(uint),
+				"u64" => typeof(ulong),
+				"u8" => typeof(byte),
+				null => throw new ArgumentNullException("token"),
+				_ => throw new ArgumentException("token")
+			}).FullName;
 
 		public static bool IsIntegerType(this Type type) => type.IsPrimitive && type != typeof(char) && type != typeof(IntPtr) && type != typeof(UIntPtr);
 

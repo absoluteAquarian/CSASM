@@ -3,6 +3,7 @@ using System.CodeDom.Compiler;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Text;
 
 namespace CSASM{
 	/// <summary>
@@ -23,13 +24,18 @@ namespace CSASM{
 			using StreamReader reader = new StreamReader(File.OpenRead(file));
 
 			int index;
-			string[] lines = reader.ReadToEnd()             //Get the file's text
-				.Replace("\r\n", "\n")                      //Normalize the newlines
-				.Split('\n')                                //Separate the lines
-				.Select(s => (index = s.IndexOf(';')) >= 0  //Remove any comments
+			//Get the file's text
+			string[] lines = reader.ReadToEnd()
+				//Normalize the newlines
+				.Replace("\r\n", "\n")
+				//Separate the lines
+				.Split('\n')
+				//Remove any comments
+				.Select(s => (index = s.IndexOf(';')) >= 0
 					? s.Substring(0, index)
 					: s)
-				.Select(s => s.Trim())                      //Remove any extra leading/trailing whitespace
+				//Remove any extra leading/trailing whitespace
+				.Select(s => s.Trim())
 				.ToArray();
 
 			//Convert the lines into a series of tokens
@@ -44,11 +50,14 @@ namespace CSASM{
 
 					//Do a generic check first for the next token
 					if((i < tokens.Count - 1 || t < lineTokens.Count - 1) && token.validNextTokens != null){
-						AsmToken next = t < lineTokens.Count - 1    //More tokens left on this line
+						//More tokens left on this line
+						AsmToken next = t < lineTokens.Count - 1
 							? lineTokens[t + 1]
-							: i < tokens.Count - 1                  //More lines left
+							//More lines left
+							: i < tokens.Count - 1
 								? tokens[i + 1][0]
-								: default;                          //Current token is the last token in the collection
+								//Current token is the last token in the collection
+								: default;
 
 						if(next.type == AsmTokenType.None)
 							throw new CompileException(line: i, $"Expected an operand for token \"{name}\", got EOF instead");
@@ -76,6 +85,44 @@ namespace CSASM{
 			return ret;
 		}
 
+		private static string[] SplitOnNonEscapedQuotesAndSpaces(string orig){
+			//Need to split on " but not \"
+			//And outside each quoted phrase, the words need to be split by ' '
+			StringBuilder sb = new StringBuilder(orig.Length);
+			List<string> strs = new List<string>();
+			char[] letters = orig.ToCharArray();
+			bool inString = false;
+
+			for(int c = 0; c < letters.Length; c++){
+				char letter = letters[c];
+				if(letter == '\\' && c < letters.Length - 1 && letters[c + 1] == '"'){
+					//Escaped quote.  Add both
+					sb.Append(letter);
+					sb.Append(letters[c + 1]);
+					//Skip the next letter since it was already used
+					c++;
+				}else if(letter == '"'){
+					if(inString){
+						strs.Add("\"" + sb.ToString() + "\"");
+						sb.Clear();
+					}
+
+					inString = !inString;
+				}else if(letter == ' ' && sb.Length > 0 && !inString){
+					//Only split to the next substring if this phrase isn't quoted
+					strs.Add(sb.ToString());
+					sb.Clear();
+				}else
+					sb.Append(letter);
+
+				//Final letter.  Add the final string
+				if(c == letters.Length - 1)
+					strs.Add(sb.ToString());
+			}
+
+			return strs.ToArray();
+		}
+
 		private static List<List<AsmToken>> GetTokens(string[] lines){
 			List<List<AsmToken>> tokens = new List<List<AsmToken>>();
 
@@ -83,13 +130,8 @@ namespace CSASM{
 				tokens.Add(new List<AsmToken>());
 
 				string line = lines[i];
+				string[] words = SplitOnNonEscapedQuotesAndSpaces(line);
 
-				//This algorithm was taken from https://stackoverflow.com/a/14655199/8420233
-				string[] words = line.Split('"')                                                //Split on quotes first
-					.Select((element, index) => index % 2 == 0
-						? element.Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries)   //Then only split on spaces within quoted phrases
-						: new string[] { "\"" + element + "\"" })                               //Otherwise, just use the whole phrase
-					.SelectMany(element => element).ToArray();
 				for(int w = 0; w < words.Length; w++){
 					string word = words[w];
 
@@ -146,8 +188,14 @@ namespace CSASM{
 						case AsmTokenType.MethodName:
 						case AsmTokenType.VariableName:
 						case AsmTokenType.LabelName:
-							if(!CodeGenerator.IsValidLanguageIndependentIdentifier(token.token))
-								throw new CompileException(line: i, $"{(token.type == AsmTokenType.MethodName ? "Function" : "Variable")} name was invalid");
+							if(!CodeGenerator.IsValidLanguageIndependentIdentifier(token.token)){
+								string name = token.type == AsmTokenType.MethodName
+									? "Function"
+									: (token.type == AsmTokenType.VariableName
+										? "Variable"
+										: "Label");
+								throw new CompileException(line: i, $"{name} name was invalid");
+							}
 							break;
 					}
 

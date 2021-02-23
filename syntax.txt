@@ -24,7 +24,7 @@ DEFINED TOKENS
 
 .hide ................... Marks a function as "private".  Methods default to "public" if this token isn't used
 
-.lbl <name> ............. Defines a jump/branch label whose name is <name>
+.lbl <name> ............. Defines a jump/branch label whose name is <name>.  Labels must be contained in methods and are bound to the scope of the method
 .local .................. Marks atoken as a local variable
 
 .pub .................... Marks a function as "public".
@@ -68,10 +68,15 @@ asr ..................... Shifts a 32-bit integer stored in the accumulator one 
 
 br <label> .............. Unconditionally jumps execution to <label>
 brc <label> ............. Jumps execution to <label> iff the Carry flag is set
+brnc <label> ............ Jumps execution to <label> iff the Carry flag is cleared
+brnull <label> .......... Jumps execution to <label> iff the value on the top of the stack is null
+brnull.a <label> ........ Jumps execution to <label> iff the value in the accumulator is null
+brf <label> ............. Jumps execution to <label> iff the Comparison flag is cleared
 brt <label> ............. Jumps execution to <label> iff the Comparison flag is set
 
 call <func> ............. Calls a function.  The function's arguments must be pushed to the stack before this instruction
 clc ..................... Clears the Carry flag
+clo ..................... Clears the Comparison flag
 comp .................... Sets the Comparison flag iff the top two elements on the stack are equal
 comp.gt ................. Sets the Comparison flag iff the top element on the stack is greater than the second-to-top element
 comp.lt ................. Sets the Comparison flag iff the top element on the stack is less than the second-to-top element
@@ -86,6 +91,8 @@ exit .................... Stops the program
 
 inc <var> ............... Increments an integer stored in <var> by one
 interp <str> ............ Pops a 32-bit integer from the stack.  Using that value, N objects will be popped from the stack and used in formatting the input <str> string
+is <type> ............... Sets the Comparison flag iff the value on the top of the stack has the same type as <type>
+is.a <type> ............. Sets the Comparison flag iff the value contained in the accumulator has the same type as <type>
 
 ld <var> ................ Pushes the value contained in <var> to the stack
 lda <var> ............... Stores <var> into the accumulator
@@ -93,6 +100,7 @@ lda <var> ............... Stores <var> into the accumulator
 mul ..................... Pops two values from the stack and pushes the result of their product
 
 not ..................... Negates the Comparison flag
+not.c ................... Negates the Carry flag
 
 pop ..................... Pops a value from the stack
 pop.a ................... Pops a value from the stack and stores it in the accumulator
@@ -106,10 +114,14 @@ ret ..................... Returns from a method
 rol ..................... Shifts a 32-bit integer stored in the accumulator 1 bit to the left and updates the Carry flag
 ror ..................... Shifts a 32-bit integer stored in the accumulator 1 bit to the right and updates the Carry flag
 
-st <var> ................ Stores the value at the top of the stack to <var>
+st <var> ................ Pops a value from the stack and stores it in <var>
 sta <var> ............... Stores the value in the accumulator to <var>
 stc ..................... Sets the Carry flag
 sub ..................... Pops two values from the stack and pushes the result of the second subtracted from the first
+
+throw <str> ............. Throws a "ThrowException" with whose message is <str>
+type .................... Pushes a string representing the type of the object on the top of the stack
+type.a .................. Pushes a string representing the type of the object in the accumulator
 
 
 DEFINED REGISTERS
