@@ -290,7 +290,7 @@ namespace CSASM{
 			sb.AppendLine("}");
 			sb.AppendLine("public static byte Comparison{");
 			sb.Indent();
-			sb.AppendLine("get{ return (byte)(flags & 0x02); }");
+			sb.AppendLine("get{ return (byte)((flags & 0x02) >> 1); }");
 			sb.AppendLine("set{ Verify(value); flags = (byte)((flags & ~0x02) | (value << 1)); }");
 			sb.Outdent();
 			sb.AppendLine("}");
