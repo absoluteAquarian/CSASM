@@ -6,26 +6,40 @@ func main:
 	push 32
 	; Convert the 32 to an sbyte
 	conv i8
+
+	.local val1 : i32
 	push 15
+	pop val1
+	.local val2 : str
 	push "Hello, World!"
+	pop val2
 	
-	; Compare the top two elements on the stack (Equality)
-	comp
+	.local args : ~arr:obj,1
 	
-	; Pop the top element and store it to the accumulator
-	pop.a
 	; Print the first value
-	push 1
+	push args
+	push val1
+	stelem 0
+
+	push args
 	interp "First value: {0}"
 	print.n
+
 	; Print the second value
-	push.a
-	push 1
+	push args
+	push val2
+	stelem 0
+
+	push args
 	interp "Second value: {0}"
 	print.n
 	
 	; Based on the result of the "comp" instruction, print whether the top two values
 	;   on the stack are equal
+	push val1
+	push val2
+	comp
+
 	push $f.o
 	brfalse ifFalse
 	push "Equal"
@@ -34,16 +48,26 @@ func main:
 	push "Not Equal"
 .lbl next
 	print.n
+
 	; Check the second thing's type pushed to the stack at the beginning of the stack
 	; Pop the element from the stack so that it can be used repeatedly
-	pop.a
-	push.a
-	push 1
+	pop $a
+
+	push args
+	push $a
+	stelem 0
+
+	push args
 	interp "Accumulator = {0}"
 	print.n
+
 	; Get the type of the object in the accumulator, represented as a string (e.g. "i32")
-	type.a
-	push 1
+	push args
+	push $a
+	type
+	stelem 0
+
+	push args
 	interp "Accumulator type: {0}"
 	print.n
 	
@@ -63,23 +87,30 @@ func main:
 	clf.o
 	is.a f32
 	is.a f64
-	is.a f128
 	push $f.o
 	brtrue typeIsFloat
 	
 	clf.o
 	is.a char
 	is.a str
+	is.a obj
 	push $f.o
 	brtrue typeIsOther
 	
-	push.a
-	brfalse typeIsNull
+	push $a
+	push null
+	comp
+	push $f.o
+	brtrue typeIsNull
 	
-	type.a
-	push 1
+	push args
+	push $a
+	type
+	stelem 0
+
+	push args
 	interp "Unknown type: {0}"
-	pop.a
+	pop $a
 	throw $a
 .lbl typeIsInteger
 	push "Type: integer"

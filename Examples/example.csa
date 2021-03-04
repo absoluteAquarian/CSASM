@@ -6,7 +6,7 @@
 
 func main:
 	push 5
-	st field
+	pop field
 	
 	push "\"Hello World!\""  ; Text printing example
 	print.n
@@ -15,36 +15,58 @@ func main:
 
 	.local result : i32  ; Local variable usage example
 	call typemethod
-	st result
+	pop result
 
 	; String interpolation example
-	; "interp" expects two values on the top of the stack in this order:
-	;   - how many values should be popped off of the stack
-	;   - the elements on the stack
-	ld result
-	push 1
+	.local args : ~arr:obj,1
+	push args
+	push result
+	stelem 0
+
+	push args
 	interp "result: {0}"
 	print.n
 
+	push args
 	call divmethod
-	sta "25.0 / 5.2 = {0}"
-	push 1
+	stelem 0
+	
+	push "25.0 / 5.2 = {0}"
+	pop $a
+
+	push args
 	interp $a
 	print.n
 	
 	; Carry example
-	sta 151
-	push.a
-	push 1
+	push 151
+	pop $a
+
+	push args
+	push $a
+	stelem 0
+
+	push args
 	interp "Accumulator before ROR: 0x{0:X4}"
 	print.n
+	
+	push $a
 	ror
-	push.a
-	push 1
+	pop $a
+
+	push args
+	push $a
+	stelem 0
+
+	push args
 	interp "Accumulator after ROR: 0x{0:X4}"
 	print.n
-	push.c
-	push 1
+
+	push args
+	push $f.c
+	stelem 0
+
+	push args
 	interp "Carry flag: {0}"
 	print.n
 	
@@ -55,10 +77,14 @@ end
 
 .hide	
 func method:
+	.local args : ~arr:obj,1
+	push args
 	push 15
 	push 25
 	add
-	push 1
+	stelem 0
+
+	push args
 	interp "15 + 25 = {0}"
 	print.n
 	ret
@@ -66,7 +92,7 @@ end
 
 .hide
 func typemethod:
-	ld field
+	push field
 	dup
 	mul
 	ret
@@ -84,26 +110,35 @@ end
 func branchmethod:
 	; Jumping/branching example
 	.local counter : i32
+
 	; Loop from 1 to 10
-	sta 1
+	push 1
+	pop $a
 	lda counter
-	sta 10
+	push 10
+	pop $a
+
+	.local args : ~arr:obj,1
 .lbl loop
 	; Print the current number
+	push args
 	push counter
-	push 1
 	interp "{0}"
 	print
+
 	; Exit the loop if the counter == the accumulator
 	push $a
 	push counter
 	comp
 	push $f.o
 	brtrue loopEnd
+	
 	inc counter
+
 	push ", "
 	print
 	br loop
+
 .lbl loopEnd
 	push "\n"
 	print

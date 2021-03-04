@@ -54,5 +54,7 @@
 			=> obj is AsmToken token && this == token;
 
 		public override int GetHashCode() => type.GetHashCode();
+
+		public override string ToString() => token;
 	}
 }

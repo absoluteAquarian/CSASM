@@ -108,6 +108,7 @@ namespace CSASM{
 					}
 
 					inString = !inString;
+					continue;
 				}else if(letter == ' ' && sb.Length > 0 && !inString){
 					//Only split to the next substring if this phrase isn't quoted
 					strs.Add(sb.ToString());
@@ -176,9 +177,13 @@ namespace CSASM{
 						_ => throw new CompileException(line: i, $"\"{word}\" was not a valid token or was in an invalid location")
 					};
 
-					if(token.type == AsmTokenType.MethodName)
+					if(token.type == AsmTokenType.MethodName){
+						//Function definition has to be something like "func main:"
+						if(!word.EndsWith(":"))
+							throw new CompileException(line: i, "Incomplete function definition");
+
 						token.token = word.Replace(":", "");
-					else if(token.type == AsmTokenType.InstructionOperand && tokens[i][w - 1].token == "call")
+					}else if(token.type == AsmTokenType.InstructionOperand && tokens[i][w - 1].token == "call")
 						token.token = "csasm_" + word;
 					else if(token.token == null)
 						token.token = word;

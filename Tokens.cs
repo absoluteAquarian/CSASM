@@ -54,24 +54,18 @@ namespace CSASM{
 			"div",
 			"dup",
 			"exit",
-			"ldc",
 			"mul",
 			"not",
-			"not.c",
-			"pop",
-			"pop.a",
+			"popd",
 			"print",
 			"print.n",
-			"push.a",
-			"push.c",
 			"ret",
 			"rol",
 			"ror",
 			"stf.c",
 			"stf.o",
 			"sub",
-			"type",
-			"type.a"
+			"type"
 		};
 		//Instructions with an operand
 		public static readonly List<string> instructionWordsWithParameters = new List<string>(){
@@ -86,12 +80,66 @@ namespace CSASM{
 			"interp",
 			"is",
 			"is.a",
-			"ld",
 			"lda",
+			"ldelem",
+			"newarr",
+			"pop",
 			"push",
-			"st",
 			"sta",
+			"stelem",
 			"throw"
+		};
+
+		private const int Push0 = 0;
+		private const int Push1 = 1;
+		private const int Pop0 = 0;
+		private const int Pop1 = -1;
+		private const int Pop2 = -2;
+
+		public static readonly IDictionary<string, int> stackUsage = new Dictionary<string, int>(){
+			["abs"] =     Pop1 + Push1,
+			["add"] =     Pop2 + Push1,
+			["asl"] =     Pop1 + Push1,
+			["asr"] =     Pop1 + Push1,
+			["br"] =      Pop0 + Push0,
+			["brtrue"] =  Pop1 + Push0,
+			["brfalse"] = Pop1 + Push0,
+			["call"] =    Pop0 + Push0,
+			["clf.c"] =   Pop0 + Push0,
+			["clf.o"] =   Pop0 + Push0,
+			["comp"] =    Pop2 + Push0,
+			["comp.gt"] = Pop2 + Push0,
+			["comp.lt"] = Pop2 + Push0,
+			["conv"] =    Pop1 + Push1,
+			["conv.a"] =  Pop0 + Push0,
+			["dec"] =     Pop0 + Push0,
+			["div"] =     Pop2 + Push1,
+			["dup"] =     Pop0 + Push1,
+			["exit"] =    Pop0 + Push0,
+			["inc"] =     Pop0 + Push0,
+			["interp"] =  Pop1 + Push1,
+			["is"] =      Pop1 + Push0,
+			["is.a"] =    Pop0 + Push0,
+			["lda"] =     Pop0 + Push0,
+			["ldelem"] =  Pop1 + Push0,
+			["mul"] =     Pop2 + Push1,
+			["newarr"] =  Pop1 + Push1,
+			["not"] =     Pop1 + Push1,
+			["pop"] =     Pop1 + Push0,
+			["popd"] =    Pop1 + Push0,
+			["print"] =   Pop1 + Push0,
+			["print.n"] = Pop1 + Push0,
+			["push"] =    Pop0 + Push1,
+			["ret"] =     Pop0 + Push0,
+			["rol"] =     Pop1 + Push1,
+			["ror"] =     Pop1 + Push1,
+			["sta"] =     Pop0 + Push0,
+			["stelem"] =  Pop2 + Push0,
+			["stf.c"] =   Pop0 + Push0,
+			["stf.o"] =   Pop0 + Push0,
+			["sub"] =     Pop2 + Push1,
+			["throw"] =   Pop0 + Push0,
+			["type"] =    Pop1 + Push1
 		};
 
 		public static bool HasOperand(AsmToken token)

@@ -1,78 +1,66 @@
-﻿using System;
+﻿using CSASM.Core;
+using System;
 
 namespace CSASM{
 	internal static class Utility{
+		//Used for a VS Edit-and-Continue workaround
+		public static bool IgnoreFile = false;
+
 		public static string GetAsmType(Type type){
 			if(type == typeof(char))
 				return "char";
-			if(type == typeof(float))
+			if(type == typeof(float) || type == typeof(FloatPrimitive))
 				return "f32";
-			if(type == typeof(double))
+			if(type == typeof(double) || type == typeof(DoublePrimitive))
 				return "f64";
-			if(type == typeof(decimal))
-				return "f128";
-			if(type == typeof(short))
+			if(type == typeof(short) || type == typeof(ShortPrimitive))
 				return "i16";
-			if(type == typeof(int))
+			if(type == typeof(int) || type == typeof(IntPrimitive))
 				return "i32";
-			if(type == typeof(long))
+			if(type == typeof(long) || type == typeof(LongPrimitive))
 				return "i64";
-			if(type == typeof(sbyte))
+			if(type == typeof(sbyte) || type == typeof(SbytePrimitive))
 				return "i8";
 			if(type == typeof(string))
 				return "str";
-			if(type == typeof(ushort))
+			if(type == typeof(ushort) || type == typeof(UshortPrimitive))
 				return "u16";
-			if(type == typeof(uint))
+			if(type == typeof(uint) || type == typeof(UintPrimitive))
 				return "u32";
-			if(type == typeof(ulong))
+			if(type == typeof(ulong) || type == typeof(UlongPrimitive))
 				return "u64";
-			if(type == typeof(byte))
+			if(type == typeof(byte) || type == typeof(BytePrimitive))
 				return "u8";
 
 			return "object";
 		}
 
-		public static string GetCSharpType(AsmToken varTypeToken)
-			=> varTypeToken.token switch{
-				"char" => "char",
-				"f32" => "float",
-				"f64" => "double",
-				"f128" => "decimal",
-				"i16" => "short",
-				"i32" => "int",
-				"i64" => "long",
-				"i8" => "sbyte",
-				"str" => "string",
-				"u16" => "ushort",
-				"u32" => "uint",
-				"u64" => "ulong",
-				"u8" => "byte",
-				null => throw new ArgumentNullException("varTypeToken.token"),
-				_ => throw new ArgumentException("varTypeToken.token")
-			};
+		public static bool IsCSASMType(string type)
+			=> type == "char" || type == "str"
+				|| type == "f32" || type == "f64"
+				|| type == "i8" || type == "i16" || type == "i32" || type == "i64"
+				|| type == "u8" || type == "u16" || type == "u32" || type == "u64"
+				|| type == "obj"
+				|| (type.StartsWith("~arr:") && IsCSASMType(type.Substring("~arr:".Length)));
 
-		public static string GetCSharpTypeName(AsmToken token)
-			=> (token.token switch{
+		public static Type GetCsharpType(string asmType)
+			=> asmType switch{
 				"char" => typeof(char),
-				"f32" => typeof(float),
-				"f64" => typeof(double),
-				"f128" => typeof(decimal),
-				"i16" => typeof(short),
-				"i32" => typeof(int),
-				"i64" => typeof(long),
-				"i8" => typeof(sbyte),
 				"str" => typeof(string),
-				"u16" => typeof(ushort),
-				"u32" => typeof(uint),
-				"u64" => typeof(ulong),
-				"u8" => typeof(byte),
-				null => throw new ArgumentNullException("token"),
-				_ => throw new ArgumentException("token")
-			}).FullName;
-
-		public static bool IsIntegerType(this Type type) => type.IsPrimitive && type != typeof(char) && type != typeof(IntPtr) && type != typeof(UIntPtr);
-
-		public static bool IsFloatingPointType(this Type type) => type == typeof(float) || type == typeof(double) || type == typeof(decimal);
+				"i8" => typeof(SbytePrimitive),
+				"i16" => typeof(ShortPrimitive),
+				"i32" => typeof(IntPrimitive),
+				"i64" => typeof(LongPrimitive),
+				"u8" => typeof(BytePrimitive),
+				"u16" => typeof(UshortPrimitive),
+				"u32" => typeof(UintPrimitive),
+				"u64" => typeof(UlongPrimitive),
+				"f32" => typeof(FloatPrimitive),
+				"f64" => typeof(DoublePrimitive),
+				"obj" => typeof(object),
+				null => throw new ArgumentNullException("asmType"),
+				_ when asmType.StartsWith("~arr:") => Array.CreateInstance(GetCsharpType(asmType.Substring("~arr:".Length)), 0).GetType(),
+				_ => throw new CompileException($"Type \"{asmType}\" did not correlate to a valid CSASM type")
+			};
 	}
 }

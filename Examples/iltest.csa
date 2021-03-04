@@ -1,0 +1,75 @@
+﻿.asm_name IL
+.stack 500
+
+func main:
+	; This is just a test file to make sure that each instruction parses and compiles correctly
+	push -15
+	abs
+	pop $a
+
+	.local args : ~arr:obj,1
+	push args
+	push $a
+	stelem 0
+
+	push args
+	interp "Abs(-15) = {0}"
+	print.n
+
+	.local letters : ~arr:char,5
+	push "Hello"
+	conv ~arr:char
+	pop letters
+
+	push letters
+	print.n
+
+	push 5
+	newarr obj
+	pop $a
+
+	push $a
+	print.n
+
+	push 0
+	pop $1
+
+.lbl loop
+	; Copy the letter to $a
+	push $a
+	push letters
+	ldelem $1
+	stelem $1
+
+	; Add 1 to the counter
+	inc $1
+
+	; Check if it's equal to 5
+	push $1
+	push 5
+	comp
+
+	; Stop looping if the comparison was successful
+	push $f.o
+	brfalse loop
+
+	; Create a 1-element array for the "interp" call later
+	push 1
+	newarr obj
+	pop $2
+
+	push $2
+	print.n
+
+	; Convert the <~arr:char> in the accumulator to a <str> and store it in the array
+	push $2
+	push $a
+	conv str
+	stelem 0
+
+	push $2
+	interp "Letters: {0}"
+	print.n
+
+	ret
+end

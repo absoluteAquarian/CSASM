@@ -5,10 +5,6 @@ namespace CSASM{
 		public InstructionException(string message) : base(message){ }
 	}
 
-	public class StackException : Exception{
-		public StackException(Type type) : base($"Value on stack had an invalid type: {Utility.GetAsmType(type)}"){ }
-	}
-
 	public class CompileException : Exception{
 		public CompileException(string message) : base(message){ }
 

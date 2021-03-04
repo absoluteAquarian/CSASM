@@ -1,0 +1,170 @@
+﻿CSASM DOCUMENTATION
+===================
+
+Detailed explanations for every token, instruction and type can be found in this file.
+Entries in this documentation are in alphanumerical order, with symbols being first
+
+===========================================
+.asm_name
+
+Token Name:  Assembly Name
+
+Default value:  csasm_prog
+
+Description:
+
+    The name the compiled executable will be given.
+    This token can only be defined once.
+
+===========================================
+.global
+
+Token Name:  Global Variable Indicator
+
+Expected usage:
+
+    .global <name> : <type>
+
+Example usage:
+
+    .global field : i32
+
+Description:
+
+    Declares a variable in the global scope.
+    Cannot be defined within the scope of a function.
+
+===========================================
+.hide
+
+Token Name:  Private Function Accessbility Indicator
+
+Expected usage:
+
+    .hide
+    func <name>:
+
+Example usage:
+
+    .hide
+    func method:
+
+Description:
+
+    Marks a function as being "private", meaning it cannot be accessed from other files.
+
+===========================================
+.lbl
+
+Token Name:  Label Indicator
+
+Expected usage:
+
+    .lbl <name>
+
+Example usage:
+
+    .lbl label
+
+Description:
+
+    Marks a token as being a label for branching instructions.
+    Must be defined within the scope of a function.
+
+===========================================
+.local
+
+Token Name:  Local Variable Indicator
+
+Expected usage:
+
+    .local <name> : <type>
+
+Example usage:
+
+    .local counter : u16
+
+Description:
+
+    Declares a variable in a function's scope.
+    Cannot be defined within the global scope.
+
+===========================================
+.pub
+
+Token Name:  Public Function Accessibility Indicator
+
+Expected usage:
+
+    .pub
+    func <name>:
+
+Example usage:
+
+    .pub
+    func method:
+
+Description:
+
+    Marks a function as being "public", meaning it can be accessed from anywhere.
+
+===========================================
+.stack
+
+Token Name:  Stack Size Setter
+
+Expected usage:
+
+    .stack <integer>
+
+Example usage:
+
+    .stack 500
+
+Description:
+
+    Sets the capacity of the stack the program will use.
+    This token can only be defined once.
+
+===========================================
+~arr
+
+Token Name:  Array Type
+
+Expected usage:
+
+    ~arr:<type>,<i32>
+
+Example usage:
+
+    .global field : ~arr:i32,10
+
+Description:
+
+    A type representing a System.Array object.
+
+===========================================
+abs
+
+Parameter:  None
+
+Description:
+
+    Pops an object from the stack.
+    If the object is an integer or floating-point value, its absolute value will be pushed to the stack.
+    Otherwise, an exception is thrown.
+
+===========================================
+add
+
+Parameter:  None
+
+Description:
+    
+    Pops two values from the stack, value1 and value2.
+
+    If both objects are integers or floating point values, their sum is pushed to the stack.
+    Otherwise, an exception is thrown.
+
+
+TODO: Fill out the rest of the documentation
