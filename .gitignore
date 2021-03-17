@@ -350,4 +350,4 @@ MigrationBackup/
 .ionide/
 
 # Project file
-.sln
+*.sln
