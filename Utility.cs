@@ -1,5 +1,6 @@
 ﻿using CSASM.Core;
 using System;
+using System.IO;
 
 namespace CSASM{
 	internal static class Utility{
@@ -62,5 +63,24 @@ namespace CSASM{
 				_ when asmType.StartsWith("~arr:") => Array.CreateInstance(GetCsharpType(asmType.Substring("~arr:".Length)), 0).GetType(),
 				_ => throw new CompileException($"Type \"{asmType}\" did not correlate to a valid CSASM type")
 			};
+
+		/// <summary>
+		/// Depth-first recursive delete, with handling for descendant directories open in Windows Explorer.
+		/// </summary>
+		public static void DeleteDirectory(string path){
+			//Taken from https://stackoverflow.com/questions/329355/cannot-delete-directory-with-directory-deletepath-true
+
+			foreach(string directory in Directory.GetDirectories(path)){
+				DeleteDirectory(directory);
+			}
+
+			try{
+				Directory.Delete(path, true);
+			}catch (IOException){
+				Directory.Delete(path, true);
+			}catch (UnauthorizedAccessException){
+				Directory.Delete(path, true);
+			}
+		}
 	}
 }

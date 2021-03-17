@@ -113,8 +113,8 @@ func branchmethod:
 
 	; Loop from 1 to 10
 	push 1
-	pop $a
-	lda counter
+	pop counter
+
 	push 10
 	pop $a
 
@@ -123,6 +123,9 @@ func branchmethod:
 	; Print the current number
 	push args
 	push counter
+	stelem 0
+
+	push args
 	interp "{0}"
 	print
 

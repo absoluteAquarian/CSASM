@@ -15,7 +15,7 @@ using System.Text.RegularExpressions;
 
 namespace CSASM{
 	public static class AsmCompiler{
-		public const string version = "1.0";
+		public const string version = "2.0";
 
 		//.asm_name
 		public static string asmName = "csasm_prog";
@@ -106,7 +106,7 @@ namespace CSASM{
 			if(reportTranspiledCode){
 				string folder = $"build - {asmName}";
 				if(Directory.Exists(folder))
-					Directory.Delete(folder, recursive: true);
+					Utility.DeleteDirectory(folder);
 
 				Directory.CreateDirectory(folder);
 			}
@@ -411,6 +411,7 @@ namespace CSASM{
 				RuntimeVersion = "v4.0.30319"  //Same runtime version as "CSASM.Core.dll"
 			};
 			var asm = new AssemblyDefUser($"CSASM_program_{asmName}", new Version(version));
+
 			asm.Modules.Add(mod);
 
 			//Need to change the TargetFramework attribute
@@ -423,9 +424,9 @@ namespace CSASM{
 			Construct(mod, source);
 
 			if(reportTranspiledCode)
-				Console.WriteLine("Saving CSASM module...");
+				Console.WriteLine("Saving CSASM assembly...");
 
-			mod.Write(absolute);
+			asm.Write(absolute);
 		}
 
 		static IMethod csasmStack_Push, csasmStack_Pop;
@@ -490,7 +491,7 @@ namespace CSASM{
 			CompileMethodsAndGlobals(mod, asmClass, source);
 
 			//Create the entry point
-			var entry = new MethodDefUser("Main", MethodSig.CreateStatic(mod.CorLibTypes.Int32, string_array_ref.ToTypeSig()),
+			var entry = new MethodDefUser("Main", MethodSig.CreateStatic(mod.CorLibTypes.Int32, string_array_ref.ToTypeSig().ToSZArraySig()),
 				MethodImplAttributes.IL | MethodImplAttributes.Managed,
 				MethodAttributes.Public | MethodAttributes.Static);
 			entry.Parameters[0].CreateParamDef();
@@ -499,7 +500,7 @@ namespace CSASM{
 
 			/*  C#-equivalent code:
 			 *  
-			 *  return CSASM.Core.Program.Main(typeof(<asm_name>.Program).GetMethod("csasm_main", Type.EmptyTypes), stackSize);
+			 *  return CSASM.Core.Sandbox.Main(typeof(<asm_name>.Program).GetMethod("csasm_main", Type.EmptyTypes), stackSize);
 			 */
 			/*   IL Code:
 			 *   
@@ -509,7 +510,7 @@ namespace CSASM{
 			 *       ldsfld       System.Type.EmptyTypes
 			 *       call         System.Type.GetMethod(System.String, System.Type[])
 			 *       ldc.i4       <stackSize>
-			 *       call         CSASM.Core.Program.Main(System.Reflection.MethodInfo, System.Int32)
+			 *       call         CSASM.Core.Sandbox.Main(System.Reflection.MethodInfo, System.Int32)
 			 *       ret
 			 */
 			entry.Body = body = new CilBody();
@@ -822,48 +823,55 @@ namespace CSASM{
 			if(methodName == ".cctor")
 				throw new CompileException("Cannot access static constructors via ImportMethod<T>(ModuleDefUser, string, Type[], out ITypeDefOrRef, out IMethod)");
 
-			Importer importer = new Importer(mod);
-			type = importer.Import(typeof(T));
+			Importer importer = new Importer(mod, ImporterOptions.TryToUseDefs);
+			type = importer.ImportAsTypeSig(typeof(T)).ToTypeDefOrRef();
+
 			method = methodName == ".ctor"
 				? importer.Import(typeof(T).GetConstructor(methodParams ?? Type.EmptyTypes))
 				: importer.Import(typeof(T).GetMethod(methodName, methodParams ?? Type.EmptyTypes));
 		}
 
 		private static void ImportField<T>(ModuleDefUser mod, string fieldName, out ITypeDefOrRef type, out IField field){
-			Importer importer = new Importer(mod);
-			type = importer.Import(typeof(T));
+			Importer importer = new Importer(mod, ImporterOptions.TryToUseDefs);
+			type = importer.ImportAsTypeSig(typeof(T)).ToTypeDefOrRef();
 			field = importer.Import(typeof(T).GetField(fieldName));
 		}
 
 		private static void ImportStaticMethod(ModuleDefUser mod, Type type, string methodName, Type[] methodParams, out IMethod method){
-			Importer importer = new Importer(mod);
+			Importer importer = new Importer(mod, ImporterOptions.TryToUseDefs);
 			method = importer.Import(type.GetMethod(methodName, methodParams ?? Type.EmptyTypes));
 		}
 
 		private static void ImportStaticField(ModuleDefUser mod, Type type, string fieldName, out IField field){
-			Importer importer = new Importer(mod);
+			Importer importer = new Importer(mod, ImporterOptions.TryToUseDefs);
 			field = importer.Import(type.GetField(fieldName));
 		}
 
 		private static TypeSig GetSigFromCSASMType(ModuleDefUser mod, string type, int line){
-			Importer importer = new Importer(mod);
+			/*   IMPORTANT NOTES:
+			 *   
+			 *   Type sigs for array types won't register properly unless they're a SZArraySig
+			 *   Type sigs for value types won't register properly unless they're a ValueTypeSig
+			 */
+
+			Importer importer = new Importer(mod, ImporterOptions.TryToUseDefs);
 			//First check if the type is an inline array
 			if(CheckInlineArray(type, out Type elemType, out _))
-				return importer.ImportAsTypeSig(Array.CreateInstance(elemType, 0).GetType());
+				return importer.ImportAsTypeSig(Array.CreateInstance(elemType, 0).GetType()).ToSZArraySig();
 
 			return type switch{
 				"char" => mod.CorLibTypes.Char,
 				"str" => mod.CorLibTypes.String,
-				"i8" => importer.ImportDeclaringType(typeof(SbytePrimitive)).ToTypeSig(),
-				"i16" => importer.ImportDeclaringType(typeof(ShortPrimitive)).ToTypeSig(),
-				"i32" => importer.ImportDeclaringType(typeof(IntPrimitive)).ToTypeSig(),
-				"i64" => importer.ImportDeclaringType(typeof(LongPrimitive)).ToTypeSig(),
-				"u8" => importer.ImportDeclaringType(typeof(BytePrimitive)).ToTypeSig(),
-				"u16" => importer.ImportDeclaringType(typeof(UshortPrimitive)).ToTypeSig(),
-				"u32" => importer.ImportDeclaringType(typeof(UintPrimitive)).ToTypeSig(),
-				"u64" => importer.ImportDeclaringType(typeof(UlongPrimitive)).ToTypeSig(),
-				"f32" => importer.ImportDeclaringType(typeof(FloatPrimitive)).ToTypeSig(),
-				"f64" => importer.ImportDeclaringType(typeof(DoublePrimitive)).ToTypeSig(),
+				"i8" => importer.ImportAsTypeSig(typeof(SbytePrimitive)),
+				"i16" => importer.ImportAsTypeSig(typeof(ShortPrimitive)),
+				"i32" => importer.ImportAsTypeSig(typeof(IntPrimitive)),
+				"i64" => importer.ImportAsTypeSig(typeof(LongPrimitive)),
+				"u8" => importer.ImportAsTypeSig(typeof(BytePrimitive)),
+				"u16" => importer.ImportAsTypeSig(typeof(UshortPrimitive)),
+				"u32" => importer.ImportAsTypeSig(typeof(UintPrimitive)),
+				"u64" => importer.ImportAsTypeSig(typeof(UlongPrimitive)),
+				"f32" => importer.ImportAsTypeSig(typeof(FloatPrimitive)),
+				"f64" => importer.ImportAsTypeSig(typeof(DoublePrimitive)),
 				"obj" => mod.CorLibTypes.Object,
 				null => throw new CompileException(line: line, "Type string was null"),
 				_ => throw new CompileException(line: line, $"Unknown type: {type}")
@@ -1102,7 +1110,7 @@ namespace CSASM{
 					break;
 				case "conv.a":
 					if(registerArg)
-						throw new CompileException(line: line, "Expected a type indicator for the \"conv\" instruction");
+						throw new CompileException(line: line, "Expected a type indicator for the \"conv.a\" instruction");
 					if(!Utility.IsCSASMType(argToken))
 						throw new CompileException(line: line, $"Invalid type: {argToken}");
 
@@ -1168,7 +1176,7 @@ namespace CSASM{
 					break;
 				case "is.a":
 					if(!Utility.IsCSASMType(tokens[1].token))
-						throw new CompileException(line: line, $"Expected a type argument for instruction \"is\", found \"{tokens[1].token}\" instead");
+						throw new CompileException(line: line, $"Expected a type argument for instruction \"is.a\", found \"{tokens[1].token}\" instead");
 
 					body.Instructions.Add(OpCodes.Ldstr.ToInstruction(argToken));
 
