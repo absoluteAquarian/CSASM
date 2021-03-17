@@ -63,9 +63,10 @@ u8 ...................... Unsigned 8-bit integer type
 
 DEFINED INSTRUCTIONS
 ====================
+When popping elements from the stack, "A" will refer to the topmost element and "B" will refer to the element after that
 
-abs ..................... Pops a value from the stack and pushes its absolute value
-add ..................... Pops two values from the stack and pushes the result of their addition
+abs ..................... Pops A, then pushes its absolute value
+add ..................... Pops A and B, then pushes A + B
 asl ..................... Shifts a 32-bit integer stored in the accumulator one bit to the left
 asr ..................... Shifts a 32-bit integer stored in the accumulator one bit to the right
 
@@ -76,50 +77,50 @@ brtrue <label> .......... Jumps execution to <label> iff the accumulator contain
 call <func> ............. Calls a function.  The function's arguments must be pushed to the stack before this instruction
 clf.c ................... Clears the Carry flag
 clf.o ................... Clears the Comparison flag
-comp .................... Sets the Comparison flag iff the top two elements on the stack are equal
-comp.gt ................. Pops two values from the stack.  If the second-to-top element on the stack is greater than than the top element, the Comparison flag is set
-comp.lt ................. Pops two values from the stack.  If the second-to-top element on the stack is less than than the top element, the Comparison flag is set
-conv <type> ............. Pops a value from the stack, converts it to <type>, then pushes the result
+comp .................... Pops A and B and sets the Comparison flag iff A == B
+comp.gt ................. Pops A and B and sets the Comparison flag iff B > A
+comp.lt ................. Pops A and B and sets the Comparison flag iff B < A
+conv <type> ............. Pops A, converts it to <type>, then pushes the result
 conv.a <type> ........... Converts the value in the accumulator to the given type
 
 dec <var> ............... Decrements an integer stored in <var> by one
-div ..................... Pops two values from the stack and pushes the result of their quotient
-dup ..................... Duplicates the value at the top of the stack
+div ..................... Pops A and B, then pushes A / B
+dup ..................... Pops A, then pushes A twice
 
 exit .................... Stops the program
 
 inc <var> ............... Increments an integer stored in <var> by one
-interp <str> ............ Pops an obj array from the stack and uses its values to modify <str>
-is <type> ............... Sets the Comparison flag iff the value on the top of the stack has the same type as <type>
+interp <str> ............ Pops A (an <obj> array), then uses its values to modify <str>
+is <type> ............... Pops A and sets the Comparison flag iff A has the same type as <type>
 is.a <type> ............. Sets the Comparison flag iff the value contained in the accumulator has the same type as <type>
 
 lda <var> ............... Stores <var> into the accumulator
-ldelem <index> .......... Pops an array instance from the stack then pushes the value contained in that array at the zero-based index <index>
+ldelem <index> .......... Pops A (an array instance), then pushes the value contained in A at the zero-based index <index>
 
-mul ..................... Pops two values from the stack and pushes the result of their product
+mul ..................... Pops A and B, then pushes A * B
 
-neg ..................... Pops a value from the stack, then pushes its negation
-newarr <type> ........... Pops a 32-bit integer from the stack then pushes a new <type> array instance using those values
-not ..................... Pops an integer value from the stack, then pushes the bitwise-NOT of it
+neg ..................... Pops A, then pushes -A
+newarr <type> ........... Pops A (an <i32>), then pushes a new <type> array instance whose length is A
+not ..................... Pops A (an integer), then pushes ~A
 
-pop <var> ............... Pops a value from the stack and stores it in <var>
-popd .................... Pops a value from the stack and discards it
-print ................... Pops a value from the stack, then prints its string representation to the console
-print.n ................. Pops a value from the stack, then prints its string representation to the console with a newline appended
+pop <var> ............... Pops A, then stores it in <var>
+popd .................... Pops A, then discards it
+print ................... Pops A, then prints its string representation to the console
+print.n ................. Pops A, then prints its string representation to the console with a newline appended
 push <arg> .............. Pushes <arg> to the stack
 
 ret ..................... Returns from a method
-rol ..................... Shifts a 32-bit integer stored in the accumulator 1 bit to the left and updates the Carry flag
-ror ..................... Shifts a 32-bit integer stored in the accumulator 1 bit to the right and updates the Carry flag
+rol ..................... Shifts an integer stored in the accumulator 1 bit to the left and updates the Carry flag
+ror ..................... Shifts an integer stored in the accumulator 1 bit to the right and updates the Carry flag
 
 sta <var> ............... Stores the value in the accumulator in <var>
-stelem <index> .......... Pops the value to store and then the array instance.  Stores the value in the array instance at the given index
+stelem <index> .......... Pops A (an array instance) and B (the value to store), then stores B in A at the zero-based index <index>
 stf.c ................... Sets the Carry flag
 stf.o ................... Sets the Comparison flag
-sub ..................... Pops two values from the stack and pushes the result of their difference
+sub ..................... Pops A and B, then pushes A - B
 
 throw <str> ............. Throws a "ThrowException" with whose message is <str>
-type .................... Pops a value from the stack, then pushes its type's string representation
+type .................... Pops A, then pushes a string representing its type
 
 
 DEFINED REGISTERS
