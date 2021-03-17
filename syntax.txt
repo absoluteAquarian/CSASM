@@ -67,9 +67,10 @@ When popping elements from the stack, "A" will refer to the topmost element and 
 
 abs ..................... Pops A, then pushes its absolute value
 add ..................... Pops A and B, then pushes A + B
-asl ..................... Shifts a 32-bit integer stored in the accumulator one bit to the left
-asr ..................... Shifts a 32-bit integer stored in the accumulator one bit to the right
+asl ..................... Pops A (an integer), then pushes A << 1
+asr ..................... Pops A (an integer), then pushes A >> 1
 
+bytes ................... Pops A, then pushes how many bytes of memory A uses.
 br <label> .............. Unconditionally jumps execution to <label>
 brfalse <label> ......... Jumps execution to <label> iff the accumulator contains a null, zero or an empty string
 brtrue <label> .......... Jumps execution to <label> iff the accumulator contains a non-zero value or a non-empty string
@@ -96,6 +97,7 @@ is.a <type> ............. Sets the Comparison flag iff the value contained in th
 
 lda <var> ............... Stores <var> into the accumulator
 ldelem <index> .......... Pops A (an array instance), then pushes the value contained in A at the zero-based index <index>
+len ..................... Pops A (an array instance), then pushes the length of A
 
 mul ..................... Pops A and B, then pushes A * B
 
@@ -110,8 +112,8 @@ print.n ................. Pops A, then prints its string representation to the c
 push <arg> .............. Pushes <arg> to the stack
 
 ret ..................... Returns from a method
-rol ..................... Shifts an integer stored in the accumulator 1 bit to the left and updates the Carry flag
-ror ..................... Shifts an integer stored in the accumulator 1 bit to the right and updates the Carry flag
+rol ..................... Pops A (an integer), pushes (A << 1) | Carry, then sets or clears the Carry flag based on the Most Significant Bit of A
+ror ..................... Pops A (an integer), pushes (A >> 1) | (Carry << (sizeof(A) * 8 - 1)), then sets or clears the Carry flag based on the Least Significant Bit of A
 
 sta <var> ............... Stores the value in the accumulator in <var>
 stelem <index> .......... Pops A (an array instance) and B (the value to store), then stores B in A at the zero-based index <index>

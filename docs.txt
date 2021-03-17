@@ -2,9 +2,12 @@
 ===================
 
 Detailed explanations for every token, instruction and type can be found in this file.
-Entries in this documentation are in alphanumerical order, with symbols being first
+Entries in this documentation are in alphanumerical order, with symbols being first.
 
-===========================================
+For the instruction docs, "A" will refer to the top element on the stack and "B" will
+refer to the element after that.
+
+=======================================================================================
 .asm_name
 
 Token Name:  Assembly Name
@@ -16,7 +19,7 @@ Description:
     The name the compiled executable will be given.
     This token can only be defined once.
 
-===========================================
+=======================================================================================
 .global
 
 Token Name:  Global Variable Indicator
@@ -34,7 +37,7 @@ Description:
     Declares a variable in the global scope.
     Cannot be defined within the scope of a function.
 
-===========================================
+=======================================================================================
 .hide
 
 Token Name:  Private Function Accessbility Indicator
@@ -53,7 +56,7 @@ Description:
 
     Marks a function as being "private", meaning it cannot be accessed from other files.
 
-===========================================
+=======================================================================================
 .lbl
 
 Token Name:  Label Indicator
@@ -71,7 +74,7 @@ Description:
     Marks a token as being a label for branching instructions.
     Must be defined within the scope of a function.
 
-===========================================
+=======================================================================================
 .local
 
 Token Name:  Local Variable Indicator
@@ -89,7 +92,7 @@ Description:
     Declares a variable in a function's scope.
     Cannot be defined within the global scope.
 
-===========================================
+=======================================================================================
 .pub
 
 Token Name:  Public Function Accessibility Indicator
@@ -108,7 +111,7 @@ Description:
 
     Marks a function as being "public", meaning it can be accessed from anywhere.
 
-===========================================
+=======================================================================================
 .stack
 
 Token Name:  Stack Size Setter
@@ -126,14 +129,14 @@ Description:
     Sets the capacity of the stack the program will use.
     This token can only be defined once.
 
-===========================================
+=======================================================================================
 ~arr
 
 Token Name:  Array Type
 
 Expected usage:
 
-    ~arr:<type>,<i32>
+    ~arr:<type>,<u32>
 
 Example usage:
 
@@ -143,28 +146,37 @@ Description:
 
     A type representing a System.Array object.
 
-===========================================
+=======================================================================================
 abs
 
 Parameter:  None
 
 Description:
 
-    Pops an object from the stack.
-    If the object is an integer or floating-point value, its absolute value will be pushed to the stack.
-    Otherwise, an exception is thrown.
+    Pops A, then pushes the absolute value of A.
 
-===========================================
+    A must be a number.
+
+=======================================================================================
 add
 
 Parameter:  None
 
 Description:
     
-    Pops two values from the stack, value1 and value2.
+    Pops A and B, then pushes A + B.
 
-    If both objects are integers or floating point values, their sum is pushed to the stack.
-    Otherwise, an exception is thrown.
+    A and B must both be numbers of the same type.
 
+=======================================================================================
+asl
 
-TODO: Fill out the rest of the documentation
+Parameter:  None
+
+Description:
+
+    Pops A.
+    Pushes (A << 1) | Carry
+    Sets or clears the Carry flag based on the Most Significant Bit of A.
+
+TODO: finish docs
