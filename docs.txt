@@ -147,6 +147,29 @@ Description:
     A type representing a System.Array object.
 
 =======================================================================================
+^
+
+Token Nmae:  Indexer Type
+
+Expected usage:
+
+    ldelem ^<i32>
+
+    stelem ^<i32>
+
+Example usage:
+
+    push i32Array
+    push 15
+    stelem ^1
+
+Description:
+
+    A type used to help with indexing into arrays.
+    Constants of this type are equal to:  array.Length - <i32>
+    Hence, ^1 represents the end of the array.
+
+=======================================================================================
 abs
 
 Parameter:  None

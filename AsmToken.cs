@@ -20,7 +20,18 @@
 		InstructionOperand,
 
 		Label,
-		LabelName
+		LabelName,
+
+		Include,
+		IncludeTarget,
+
+		PreprocessorDefine,
+		PreprocessorDefineName,
+		PreprocessorDefineStatement,
+		PreprocessorEndIf,
+		PreprocessorIfDef,
+		PreprocessorIfNDef,
+		PreprocessorConditionalMacro
 	}
 
 	/// <summary>
@@ -33,6 +44,8 @@
 
 		public string token;
 
+		public int originalLine;
+
 		/// <summary>
 		/// Creates a new <seealso cref="AsmToken"/> instance
 		/// </summary>
@@ -41,7 +54,9 @@
 		public AsmToken(string token, AsmTokenType type, params AsmTokenType[] validNextTokens){
 			this.token = token;
 			this.type = type;
-			this.validNextTokens = validNextTokens;
+			this.validNextTokens = validNextTokens is null || validNextTokens.Length == 0 ? null : validNextTokens;
+
+			originalLine = -1;
 		}
 
 		public static bool operator ==(AsmToken first, AsmToken second)

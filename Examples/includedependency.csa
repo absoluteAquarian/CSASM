@@ -1,0 +1,22 @@
+﻿#ifndef DEPENDENCY
+#define DEPENDENCY
+
+.global field : f64
+
+func externFunc:
+	push "Calling from \"includedependency.csa\"..."
+	print.n
+
+	; Doing some maths
+	push 50
+	dup
+	mul
+	push 40
+	sub
+	conv f64
+	pop field
+
+	ret
+end
+
+#endif ; DEPENDENCY

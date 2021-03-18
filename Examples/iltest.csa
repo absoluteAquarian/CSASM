@@ -1,13 +1,15 @@
 ﻿.asm_name IL
 .stack 500
 
+#define OBJ_ARR ~arr:obj,1
+
 func main:
 	; This is just a test file to make sure that each instruction parses and compiles correctly
 	push -15
 	abs
 	pop $a
 
-	.local args : ~arr:obj,1
+	.local args : OBJ_ARR
 	push args
 	push $a
 	stelem 0
@@ -34,24 +36,27 @@ func main:
 	push 0
 	pop $1
 
-.lbl loop
-	; Copy the letter to $a
-	push $a
-	push letters
-	ldelem $1
-	stelem $1
+		.lbl loop
+		; Clear the comparison flag
+		clf.o
 
-	; Add 1 to the counter
-	inc $1
+		; Copy the letter to $a
+		push $a
+		push letters
+		ldelem $1
+		stelem $1
 
-	; Check if it's equal to 5
-	push $1
-	push 5
-	comp
+		; Add 1 to the counter
+		inc $1
 
-	; Stop looping if the comparison was successful
-	push $f.o
-	brfalse loop
+		; Check if it's equal to 5
+		push $1
+		push 5
+		comp
+
+		; Stop looping if the comparison was successful
+		push $f.o
+		brfalse loop
 
 	; Create a 1-element array for the "interp" call later
 	push 1
@@ -71,5 +76,78 @@ func main:
 	interp "Letters: {0}"
 	print.n
 
+	call arrmethod
+
 	ret
 end
+
+.hide
+func arrmethod:
+	.local args : OBJ_ARR
+	
+	push "\nCreating an int array of 5 elements..."
+	print.n
+
+	.local vals : ~arr:i32,5
+	push vals
+	push 2
+	stelem 0
+
+	push vals
+	push 3
+	stelem 1
+
+	push vals
+	push 6
+	stelem 2
+
+	push vals
+	push 7
+	stelem 3
+
+	push vals
+	push 10
+	stelem 4
+
+	; Load the last element in the array and put it in the args array
+	push args
+	push vals
+	ldelem ^1
+	stelem 0
+
+	push args
+	interp "Last element in the array is {0}"
+	print.n
+
+	; Print how many elements are in the array
+	push args
+	push vals
+	len
+	stelem 0
+
+	push args
+	interp "Length of \"vals\" is {0}"
+	print.n
+
+	; Print how much memory the array should take up
+	push args
+	push vals
+	bytes
+	stelem 0
+
+	push args
+	interp "Memory usage of \"vals\" is {0} bytes"
+	print.n
+
+	push vals
+	print.n
+
+	ret
+end
+
+; This code will be ignored, as long as IGNORE_THIS isn't defined
+#ifdef IGNORE_THIS
+func main:
+	ret
+end
+#endif ; IGNORE_THIS

@@ -1,0 +1,28 @@
+﻿.asm_name IncludeExample
+.stack 100
+
+; This would also work for the path:  includedependency.csa
+; Doing it this way just looks cooler
+.include .\includedependency.csa
+
+; Trying to use the dependency again should be ignore due to the #ifndef's present
+.include .\includedependency.csa
+
+func main:
+	push "Calling from \"main\" function..."
+	print.n
+
+	; Call the function from the other file
+	call externFunc
+
+	.local args : ~arr:obj,1
+	push args
+	push field
+	stelem 0
+
+	push args
+	interp "Field is {0}"
+	print.n
+
+	ret
+end

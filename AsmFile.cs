@@ -12,6 +12,13 @@ namespace CSASM{
 	internal class AsmFile{
 		public List<List<AsmToken>> tokens;
 
+		public static DefinesCollection RegisteredDefines = new DefinesCollection();
+
+		private static int nestedPreprocessorConditionals = 0;
+		private static int skipTokensUntilNextEndIf = 0;
+
+		public static string currentCompilingFile;
+
 		public static AsmFile ParseSourceFile(string file){
 			//If the file doesn't have the ".csa" extension, abort early
 			if(Path.GetExtension(file) != ".csa")
@@ -19,6 +26,8 @@ namespace CSASM{
 
 			if(!File.Exists(file))
 				throw new CompileException("Source file does not exist");
+
+			currentCompilingFile = Path.GetFileName(file);
 
 			//Open the file and parse it
 			using StreamReader reader = new StreamReader(File.OpenRead(file));
@@ -39,28 +48,72 @@ namespace CSASM{
 				.ToArray();
 
 			//Convert the lines into a series of tokens
-			var tokens = GetTokens(lines);
+			var tokens = GetTokens(file, lines);
+
+			AsmFile ret = new AsmFile(){
+				tokens = tokens
+			};
 
 			//Verify that the tokens are valid
-			for(int i = 0; i < tokens.Count; i++){
-				var lineTokens = tokens[i];
+			for(int i = 0; i < ret.tokens.Count; i++){
+				var lineTokens = ret.tokens[i];
 				for(int t = 0; t < lineTokens.Count; t++){
 					var token = lineTokens[t];
 					string name = token.token;
 
+					int oldSkip = skipTokensUntilNextEndIf;
+
+					if(token.type == AsmTokenType.PreprocessorIfDef){
+						if(!RegisteredDefines.HasDefine(lineTokens[t + 1].token))
+							skipTokensUntilNextEndIf++;
+						else
+							nestedPreprocessorConditionals++;
+					}else if(token.type == AsmTokenType.PreprocessorIfNDef){
+						if(RegisteredDefines.HasDefine(lineTokens[t + 1].token))
+							skipTokensUntilNextEndIf++;
+						else
+							nestedPreprocessorConditionals++;
+					}else if(token.type == AsmTokenType.PreprocessorEndIf){
+						if(nestedPreprocessorConditionals == 0 && skipTokensUntilNextEndIf == 0)
+							throw new CompileException(line: token.originalLine, "Unexpected \"#endif\" found");
+						
+						if(skipTokensUntilNextEndIf == 0)
+							nestedPreprocessorConditionals--;
+
+						//Keep ignoring tokens until the conditional has left all "don't include the stuff" blocks
+						if(skipTokensUntilNextEndIf > 0)
+							skipTokensUntilNextEndIf--;
+					}else if(token.type == AsmTokenType.PreprocessorDefine){
+						if(lineTokens.Count < 2)
+							throw new CompileException(line: token.originalLine, "Missing macro name");
+
+						RegisteredDefines.Add(new Define(token.originalLine, lineTokens[1].token, lineTokens.Count == 3 ? lineTokens[2].token : null));
+					}
+
+					if(skipTokensUntilNextEndIf > 0 || oldSkip == 1){
+						//Remove the tokens that shouldn't be present
+						ret.tokens.RemoveAt(i);
+						i--;
+						break;
+					}
+
 					//Do a generic check first for the next token
-					if((i < tokens.Count - 1 || t < lineTokens.Count - 1) && token.validNextTokens != null){
+					if((i < ret.tokens.Count - 1 || t < lineTokens.Count - 1) && token.validNextTokens != null){
+						//Only the PreprocessorDefineName is allowed to have no argument or one argument after it
+						if(token.type == AsmTokenType.PreprocessorDefineName)
+							break;
+
 						//More tokens left on this line
 						AsmToken next = t < lineTokens.Count - 1
 							? lineTokens[t + 1]
 							//More lines left
-							: i < tokens.Count - 1
-								? tokens[i + 1][0]
+							: i < ret.tokens.Count - 1
+								? ret.tokens[i + 1][0]
 								//Current token is the last token in the collection
 								: default;
 
-						if(next.type == AsmTokenType.None)
-							throw new CompileException(line: i, $"Expected an operand for token \"{name}\", got EOF instead");
+						if(next == default)
+							throw new CompileException(line: token.originalLine, $"Expected an operand for token \"{name}\" (type: {token.type}), got EOF instead");
 
 						bool valid = false;
 						foreach(var type in token.validNextTokens){
@@ -70,17 +123,43 @@ namespace CSASM{
 							}
 						}
 						if(!valid)
-							throw new CompileException(line: i, $"Next token after \"{name}\" was invalid");
+							throw new CompileException(line: token.originalLine, $"Next token after \"{name}\" (type: {token.type}) was invalid");
 					}else if(token.validNextTokens is null && t < lineTokens.Count - 1)
-						throw new CompileException(line: i, $"Token \"{name}\" should be the last token on this line");
+						throw new CompileException(line: token.originalLine, $"Token \"{name}\" (type: {token.type}) should be the last token on this line");
 					else if(token.validNextTokens != null && t == lineTokens.Count - 1 && Tokens.HasOperand(token))
-						throw new CompileException(line: i, $"Expected a token after \"{name}\", got the end of the line instead");
+						throw new CompileException(line: token.originalLine, $"Expected a token after \"{name}\" (type: {token.type}), got the end of the line instead");
 				}
 			}
 
-			AsmFile ret = new AsmFile(){
-				tokens = tokens
-			};
+			//If this file has any ".include" tokens, try to include the other files
+			var allIncludes = ret.tokens.Select((list, index) => list.Count != 2 ? default : (list[0] == Tokens.Include && list[1].type == AsmTokenType.IncludeTarget ? (list, index) : default))
+				.Where(tuple => tuple != default)
+				.ToList();
+
+			if(allIncludes.Count > 0){
+				for(int i = 0; i < allIncludes.Count; i++){
+					var tuple = allIncludes[i];
+					string targetFile = tuple.list[1].token;
+
+					if(!File.Exists(targetFile))
+						throw new CompileException(line: tuple.index, $"Target file \"{targetFile}\" does not exist.");
+
+					//Remove the existing token line since the ".include" won't be needed anymore
+					ret.tokens.RemoveAt(tuple.index);
+
+					string old = currentCompilingFile;
+					//Get the tokens and inject them into this file
+					AsmFile target = ParseSourceFile(targetFile);
+					currentCompilingFile = old;
+
+					for(int t = 0; t < target.tokens.Count; t++)
+						ret.tokens.Insert(tuple.index + t, target.tokens[t]);
+
+					//Update the indexes of the remaining includes
+					for(int ii = i + 1; ii < allIncludes.Count; ii++)
+						allIncludes[ii] = (allIncludes[ii].list, allIncludes[ii].index + target.tokens.Count);
+				}
+			}
 
 			return ret;
 		}
@@ -124,7 +203,7 @@ namespace CSASM{
 			return strs.ToArray();
 		}
 
-		private static List<List<AsmToken>> GetTokens(string[] lines){
+		private static List<List<AsmToken>> GetTokens(string sourceFile, string[] lines){
 			List<List<AsmToken>> tokens = new List<List<AsmToken>>();
 
 			for(int i = 0; i < lines.Length; i++){
@@ -132,6 +211,21 @@ namespace CSASM{
 
 				string line = lines[i];
 				string[] words = SplitOnNonEscapedQuotesAndSpaces(line);
+
+				//If any of the words coorespond to a #define that has a body, replace it
+				bool defineMacroWasUsed = false;
+				for(int w = 0; w < words.Length; w++){
+					if(RegisteredDefines.TryGetDefine(out Define define, words[w], mustHaveBody: true)){
+						defineMacroWasUsed = true;
+						words[w] = define.body;
+					}
+				}
+
+				if(defineMacroWasUsed){
+					//Recalculate the words on the line
+					line = string.Join(" ", words);
+					words = SplitOnNonEscapedQuotesAndSpaces(line);
+				}
 
 				for(int w = 0; w < words.Length; w++){
 					string word = words[w];
@@ -163,6 +257,11 @@ namespace CSASM{
 						".global" => Tokens.GlobalVar,
 						"end" => Tokens.MethodEnd,
 						".lbl" => Tokens.Label,
+						".include" => Tokens.Include,
+						"#define" => Tokens.PreprocessorDefine,
+						"#endif" => Tokens.PreprocessorEndIf,
+						"#ifdef" => Tokens.PreprocessorIfDef,
+						"#ifndef" => Tokens.PreprocessorIfNDef,
 						":" when PreviousTokenMatches(AsmTokenType.VariableName) => Tokens.VariableSeparator,
 						_ when Tokens.instructionWords.Contains(word) => Tokens.InstructionNoParameter,
 						_ when Tokens.instructionWordsWithParameters.Contains(word) => Tokens.Instruction,
@@ -173,6 +272,10 @@ namespace CSASM{
 						_ when PreviousTokenMatches(AsmTokenType.Instruction) => Tokens.InstructionOperand,
 						_ when PreviousTokenMatches(AsmTokenType.MethodIndicator) => Tokens.MethodName,
 						_ when PreviousTokenMatches(AsmTokenType.Label) => Tokens.LabelName,
+						_ when PreviousTokenMatches(AsmTokenType.Include) => Tokens.IncludeTarget,
+						_ when PreviousTokenMatches(AsmTokenType.PreprocessorDefine) => Tokens.PreprocessorDefineName,
+						_ when PreviousTokenMatches(AsmTokenType.PreprocessorDefineName) => Tokens.PreprocessorDefineStatement,
+						_ when PreviousTokenMatches(AsmTokenType.PreprocessorIfDef) || PreviousTokenMatches(AsmTokenType.PreprocessorIfNDef) => Tokens.PreprocessorConditionalMacro,
 						null => throw new Exception("Unknown word token"),
 						_ => throw new CompileException(line: i, $"\"{word}\" was not a valid token or was in an invalid location")
 					};
@@ -185,7 +288,38 @@ namespace CSASM{
 						token.token = word.Replace(":", "");
 					}else if(token.type == AsmTokenType.InstructionOperand && tokens[i][w - 1].token == "call")
 						token.token = "csasm_" + word;
-					else if(token.token == null)
+					else if(token.type == AsmTokenType.IncludeTarget){
+						//The path will be relative to the source file, not the compiler exe
+						string directoryPath = Directory.GetParent(sourceFile).FullName;
+						//While ".\" looks cool (and like a nose), it just means to use the current directory
+						if(word.StartsWith(".\\")){
+							word = word.Substring(2);
+							word = Path.Combine(directoryPath, word);
+
+							goto skipIncludeRest;
+						}else if(Path.IsPathRooted(word)){
+							//If the path starts with a drive, the path will be rooted
+							//Throw an error, since that's a big no-no
+							throw new CompileException(line: i, "\".include\" paths cannot be rooted");
+						}else if(word.StartsWith("..\\")){
+							//Moving up folders
+							while(word.StartsWith("..\\")){
+								directoryPath = Directory.GetParent(directoryPath).FullName;
+								word = word.Substring("..\\".Length);
+							}
+						}
+
+						word = Path.Combine(directoryPath, word);
+
+skipIncludeRest:
+						
+						token.token = word;
+					}else if(token.type == AsmTokenType.PreprocessorDefine){
+						if(words.Length < 2)
+							throw new CompileException(line: token.originalLine, "Missing macro name");
+
+						RegisteredDefines.Add(new Define(token.originalLine, words[1], words.Length == 3 ? words[2] : null));
+					}else if(token.token == null)
 						token.token = word;
 
 					//Verify that method, variable and label names are valid
@@ -204,9 +338,13 @@ namespace CSASM{
 							break;
 					}
 
+					token.originalLine = i;
 					tokens[i].Add(token);
 				}
 			}
+
+			//Get rid of the macros so the preprocessor conditionals work properly
+			RegisteredDefines.Clear();
 
 			return tokens;
 		}

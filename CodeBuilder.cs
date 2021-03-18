@@ -1,6 +1,7 @@
 ﻿using System.Text;
 
 namespace CSASM{
+	//A class that's no longer used since CSASM moved to IL
 	internal class CodeBuilder{
 		private readonly StringBuilder sb;
 

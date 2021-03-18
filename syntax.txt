@@ -24,12 +24,21 @@ DEFINED TOKENS
 
 .hide ................... Marks a function as "private".  Methods default to "public" if this token isn't used
 
+.include <path> ......... Inserts the contents of the file located at <path> into the current file during the compilation process.
+
 .lbl <name> ............. Defines a jump/branch label whose name is <name>.  Labels must be contained in methods and are bound to the scope of the method
 .local .................. Marks atoken as a local variable
 
 .pub .................... Marks a function as "public".
 
 .stack .................. The capacity of the stack this assembly will use.  Defaults to 1000 entries.
+
+#define <name> [body] ... Defines a macro with the given <name> and an optional one-liner [body].
+
+#endif .................. Paired with #ifdef or #ifndef.  Ends a preprocessor conditional
+
+#ifdef <macro> .......... Paired with #endif.  Starts the beginning of a preprocessor conditional.  If <macro> exists, the conditional body is included during the compilation process.
+#ifndef <macro> ......... Paired with #endif.  Starts the beginning of a preprocessor conditional.  If <macro> does not exist, the conditional body is included during the compilation process.
 
 end ..................... Ends a method declaration
 
@@ -39,7 +48,9 @@ func <name>: ............ Begins a method declaration whose name is <name>
 DEFINED TYPES
 =============
 
-~arr:<type>,<length> .... A new <type> array instance with <length> elements
+~arr:<type>,<i32> ....... A new <type> array instance with <i32> elements
+
+^<i32> .................. An indexing type used for the "ldelem" and "stelem" instructions.  See docs.txt to see how it's used.
 
 char .................... Character literal type
 

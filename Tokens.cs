@@ -40,12 +40,31 @@ namespace CSASM{
 
 		public static AsmToken LabelName = new AsmToken(null, type: AsmTokenType.LabelName, null);
 
+		public static AsmToken Include = new AsmToken(".include", type: AsmTokenType.Include, AsmTokenType.IncludeTarget);
+
+		public static AsmToken IncludeTarget = new AsmToken(null, type: AsmTokenType.IncludeTarget, null);
+
+		public static AsmToken PreprocessorDefine = new AsmToken("#define", type: AsmTokenType.PreprocessorDefine, AsmTokenType.PreprocessorDefineName);
+
+		public static AsmToken PreprocessorDefineName = new AsmToken(null, type: AsmTokenType.PreprocessorDefineName, AsmTokenType.PreprocessorDefineStatement);
+
+		public static AsmToken PreprocessorDefineStatement = new AsmToken(null, type: AsmTokenType.PreprocessorDefineStatement);
+
+		public static AsmToken PreprocessorEndIf = new AsmToken("#endif", type: AsmTokenType.PreprocessorEndIf);
+
+		public static AsmToken PreprocessorIfDef = new AsmToken("#ifdef", type: AsmTokenType.PreprocessorIfDef, AsmTokenType.PreprocessorConditionalMacro);
+
+		public static AsmToken PreprocessorIfNDef = new AsmToken("#ifndef", type: AsmTokenType.PreprocessorIfNDef, AsmTokenType.PreprocessorConditionalMacro);
+
+		public static AsmToken PreprocessorConditionalMacro = new AsmToken(null, type: AsmTokenType.PreprocessorConditionalMacro);
+
 		//Parameterless instructions
 		public static readonly List<string> instructionWords = new List<string>(){
 			"abs",
 			"add",
 			"asl",
 			"asr",
+			"bytes",
 			"clf.c",
 			"clf.o",
 			"comp",
@@ -54,6 +73,7 @@ namespace CSASM{
 			"div",
 			"dup",
 			"exit",
+			"len",
 			"mul",
 			"not",
 			"popd",
@@ -104,6 +124,7 @@ namespace CSASM{
 			["br"] =      Pop0 + Push0,
 			["brtrue"] =  Pop1 + Push0,
 			["brfalse"] = Pop1 + Push0,
+			["bytes"] =   Pop1 + Push1,
 			["call"] =    Pop0 + Push0,
 			["clf.c"] =   Pop0 + Push0,
 			["clf.o"] =   Pop0 + Push0,
@@ -122,6 +143,7 @@ namespace CSASM{
 			["is.a"] =    Pop0 + Push0,
 			["lda"] =     Pop0 + Push0,
 			["ldelem"] =  Pop1 + Push0,
+			["len"] =     Pop1 + Push1,
 			["mul"] =     Pop2 + Push1,
 			["newarr"] =  Pop1 + Push1,
 			["not"] =     Pop1 + Push1,

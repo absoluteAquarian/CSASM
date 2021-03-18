@@ -72,6 +72,7 @@
     <Compile Include="AsmFile.cs" />
     <Compile Include="AsmToken.cs" />
     <Compile Include="CodeBuilder.cs" />
+    <Compile Include="Define.cs" />
     <Compile Include="Exceptions.cs" />
     <Compile Include="External\StackCalculator.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
