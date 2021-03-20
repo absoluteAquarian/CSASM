@@ -21,7 +21,8 @@ namespace CSASM{
 
 		public static AsmFile ParseSourceFile(string file){
 			//If the file doesn't have the ".csa" extension, abort early
-			if(Path.GetExtension(file) != ".csa")
+			string extension = Path.GetExtension(file);
+			if(extension != ".csa" && extension != ".csah")
 				throw new CompileException($"Source file was not a CSASM file: {Path.GetFileName(file)}");
 
 			if(!File.Exists(file))
@@ -75,7 +76,7 @@ namespace CSASM{
 							nestedPreprocessorConditionals++;
 					}else if(token.type == AsmTokenType.PreprocessorEndIf){
 						if(nestedPreprocessorConditionals == 0 && skipTokensUntilNextEndIf == 0)
-							throw new CompileException(line: token.originalLine, "Unexpected \"#endif\" found");
+							throw new CompileException(token: token, "Unexpected \"#endif\" found");
 						
 						if(skipTokensUntilNextEndIf == 0)
 							nestedPreprocessorConditionals--;
@@ -85,9 +86,23 @@ namespace CSASM{
 							skipTokensUntilNextEndIf--;
 					}else if(token.type == AsmTokenType.PreprocessorDefine){
 						if(lineTokens.Count < 2)
-							throw new CompileException(line: token.originalLine, "Missing macro name");
+							throw new CompileException(token: token, "Missing macro name");
+
+						if(lineTokens.Count > 3)
+							throw new CompileException(token: token, "Too many tokens");
+
+						if(RegisteredDefines.HasDefine(lineTokens[1].token))
+							throw new CompileException(token: token, "Duplicate \"#define\" definition");
 
 						RegisteredDefines.Add(new Define(token.originalLine, lineTokens[1].token, lineTokens.Count == 3 ? lineTokens[2].token : null));
+					}else if(token.type == AsmTokenType.PreprocessorUndefine){
+						if(lineTokens.Count < 2)
+							throw new CompileException(token: token, "Missing macro name");
+
+						if(lineTokens.Count > 2)
+							throw new CompileException(token: token, "Too many tokens");
+
+						RegisteredDefines.RemoveDefine(lineTokens[1].token);
 					}
 
 					if(skipTokensUntilNextEndIf > 0 || oldSkip == 1){
@@ -113,7 +128,7 @@ namespace CSASM{
 								: default;
 
 						if(next == default)
-							throw new CompileException(line: token.originalLine, $"Expected an operand for token \"{name}\" (type: {token.type}), got EOF instead");
+							throw new CompileException(token: token, $"Expected an operand for token \"{name}\" (type: {token.type}), got EOF instead");
 
 						bool valid = false;
 						foreach(var type in token.validNextTokens){
@@ -123,11 +138,11 @@ namespace CSASM{
 							}
 						}
 						if(!valid)
-							throw new CompileException(line: token.originalLine, $"Next token after \"{name}\" (type: {token.type}) was invalid");
+							throw new CompileException(token: token, $"Next token after \"{name}\" (type: {token.type}) was invalid");
 					}else if(token.validNextTokens is null && t < lineTokens.Count - 1)
-						throw new CompileException(line: token.originalLine, $"Token \"{name}\" (type: {token.type}) should be the last token on this line");
+						throw new CompileException(token: token, $"Token \"{name}\" (type: {token.type}) should be the last token on this line");
 					else if(token.validNextTokens != null && t == lineTokens.Count - 1 && Tokens.HasOperand(token))
-						throw new CompileException(line: token.originalLine, $"Expected a token after \"{name}\" (type: {token.type}), got the end of the line instead");
+						throw new CompileException(token: token, $"Expected a token after \"{name}\" (type: {token.type}), got the end of the line instead");
 				}
 			}
 
@@ -141,6 +156,9 @@ namespace CSASM{
 					var tuple = allIncludes[i];
 					string targetFile = tuple.list[1].token;
 
+					if(AsmCompiler.reportTranspiledCode)
+						Console.WriteLine($"Found dependency \"{Path.GetFileName(targetFile)}\" in source file \"{Path.GetFileName(currentCompilingFile)}\"");
+
 					if(!File.Exists(targetFile))
 						throw new CompileException(line: tuple.index, $"Target file \"{targetFile}\" does not exist.");
 
@@ -148,6 +166,7 @@ namespace CSASM{
 					ret.tokens.RemoveAt(tuple.index);
 
 					string old = currentCompilingFile;
+					currentCompilingFile = targetFile;
 					//Get the tokens and inject them into this file
 					AsmFile target = ParseSourceFile(targetFile);
 					currentCompilingFile = old;
@@ -159,12 +178,28 @@ namespace CSASM{
 					for(int ii = i + 1; ii < allIncludes.Count; ii++)
 						allIncludes[ii] = (allIncludes[ii].list, allIncludes[ii].index + target.tokens.Count);
 				}
+
+				//Replace any usage of a define with a body
+				for(int i = 0; i < ret.tokens.Count; i++){
+					var lineTokens = ret.tokens[i];
+					for(int t = 0; t < lineTokens.Count; t++){
+						var token = lineTokens[t];
+						
+						if(RegisteredDefines.TryGetDefine(out Define define, token.token, mustHaveBody: true))
+							ret.tokens[i][t] = AsmToken.ModifyToken(token, define.body);
+					}
+				}
+
+				if(AsmCompiler.reportTranspiledCode)
+					Console.WriteLine();
 			}
 
 			return ret;
 		}
 
 		private static string[] SplitOnNonEscapedQuotesAndSpaces(string orig){
+			orig = orig.Trim();
+
 			//Need to split on " but not \"
 			//And outside each quoted phrase, the words need to be split by ' '
 			StringBuilder sb = new StringBuilder(orig.Length);
@@ -188,15 +223,18 @@ namespace CSASM{
 
 					inString = !inString;
 					continue;
-				}else if(letter == ' ' && sb.Length > 0 && !inString){
-					//Only split to the next substring if this phrase isn't quoted
-					strs.Add(sb.ToString());
-					sb.Clear();
+				}else if(letter == ' ' && !inString){
+					//Repeated space chars should not split text
+					if(sb.Length > 0){
+						//Only split to the next substring if this phrase isn't quoted
+						strs.Add(sb.ToString());
+						sb.Clear();
+					}
 				}else
 					sb.Append(letter);
 
 				//Final letter.  Add the final string
-				if(c == letters.Length - 1)
+				if(c == letters.Length - 1 && sb.Length > 0)
 					strs.Add(sb.ToString());
 			}
 
@@ -213,6 +251,7 @@ namespace CSASM{
 				string[] words = SplitOnNonEscapedQuotesAndSpaces(line);
 
 				//If any of the words coorespond to a #define that has a body, replace it
+				//NOTE: this step only takes into account defines in this file
 				bool defineMacroWasUsed = false;
 				for(int w = 0; w < words.Length; w++){
 					if(RegisteredDefines.TryGetDefine(out Define define, words[w], mustHaveBody: true)){
@@ -262,6 +301,7 @@ namespace CSASM{
 						"#endif" => Tokens.PreprocessorEndIf,
 						"#ifdef" => Tokens.PreprocessorIfDef,
 						"#ifndef" => Tokens.PreprocessorIfNDef,
+						"#undef" => Tokens.PreprocessorUndefine,
 						":" when PreviousTokenMatches(AsmTokenType.VariableName) => Tokens.VariableSeparator,
 						_ when Tokens.instructionWords.Contains(word) => Tokens.InstructionNoParameter,
 						_ when Tokens.instructionWordsWithParameters.Contains(word) => Tokens.Instruction,
@@ -273,7 +313,7 @@ namespace CSASM{
 						_ when PreviousTokenMatches(AsmTokenType.MethodIndicator) => Tokens.MethodName,
 						_ when PreviousTokenMatches(AsmTokenType.Label) => Tokens.LabelName,
 						_ when PreviousTokenMatches(AsmTokenType.Include) => Tokens.IncludeTarget,
-						_ when PreviousTokenMatches(AsmTokenType.PreprocessorDefine) => Tokens.PreprocessorDefineName,
+						_ when PreviousTokenMatches(AsmTokenType.PreprocessorDefine) || PreviousTokenMatches(AsmTokenType.PreprocessorUndefine) => Tokens.PreprocessorDefineName,
 						_ when PreviousTokenMatches(AsmTokenType.PreprocessorDefineName) => Tokens.PreprocessorDefineStatement,
 						_ when PreviousTokenMatches(AsmTokenType.PreprocessorIfDef) || PreviousTokenMatches(AsmTokenType.PreprocessorIfNDef) => Tokens.PreprocessorConditionalMacro,
 						null => throw new Exception("Unknown word token"),
@@ -289,6 +329,10 @@ namespace CSASM{
 					}else if(token.type == AsmTokenType.InstructionOperand && tokens[i][w - 1].token == "call")
 						token.token = "csasm_" + word;
 					else if(token.type == AsmTokenType.IncludeTarget){
+						//If the token is surrounded with quotes, remove them
+						if(word.StartsWith("\"") && word.EndsWith("\""))
+							word = word.Substring(1).Substring(0, word.Length - 2);
+
 						//The path will be relative to the source file, not the compiler exe
 						string directoryPath = Directory.GetParent(sourceFile).FullName;
 						//While ".\" looks cool (and like a nose), it just means to use the current directory
@@ -309,6 +353,10 @@ namespace CSASM{
 							}
 						}
 
+						//Verify that the path could exist
+						if(Path.GetInvalidPathChars().Any(c => word.IndexOf(c) != -1))
+							throw new CompileException(line: i, "Path for \".include\" token was invalid");
+
 						word = Path.Combine(directoryPath, word);
 
 skipIncludeRest:
@@ -316,7 +364,7 @@ skipIncludeRest:
 						token.token = word;
 					}else if(token.type == AsmTokenType.PreprocessorDefine){
 						if(words.Length < 2)
-							throw new CompileException(line: token.originalLine, "Missing macro name");
+							throw new CompileException(token: token, "Missing macro name");
 
 						RegisteredDefines.Add(new Define(token.originalLine, words[1], words.Length == 3 ? words[2] : null));
 					}else if(token.token == null)
@@ -339,6 +387,8 @@ skipIncludeRest:
 					}
 
 					token.originalLine = i;
+					token.sourceFile = currentCompilingFile;
+
 					tokens[i].Add(token);
 				}
 			}

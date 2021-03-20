@@ -31,7 +31,8 @@
 		PreprocessorEndIf,
 		PreprocessorIfDef,
 		PreprocessorIfNDef,
-		PreprocessorConditionalMacro
+		PreprocessorConditionalMacro,
+		PreprocessorUndefine
 	}
 
 	/// <summary>
@@ -46,6 +47,8 @@
 
 		public int originalLine;
 
+		public string sourceFile;
+
 		/// <summary>
 		/// Creates a new <seealso cref="AsmToken"/> instance
 		/// </summary>
@@ -57,6 +60,14 @@
 			this.validNextTokens = validNextTokens is null || validNextTokens.Length == 0 ? null : validNextTokens;
 
 			originalLine = -1;
+
+			sourceFile = null;
+		}
+
+		public static AsmToken ModifyToken(AsmToken source, string newToken){
+			AsmToken ret = source;
+			ret.token = newToken;
+			return ret;
 		}
 
 		public static bool operator ==(AsmToken first, AsmToken second)

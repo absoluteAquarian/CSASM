@@ -98,6 +98,9 @@ namespace CSASM{
 				path = Console.ReadLine();
 			}
 
+			if(Path.GetExtension(path) == ".csah")
+				throw new CompileException("CSASM header files cannot be compiled as the source file");
+
 			//Any args after the first one are ignored
 			AsmFile file = AsmFile.ParseSourceFile(path);
 
@@ -273,19 +276,19 @@ namespace CSASM{
 						if(!methods.Contains(token.token))
 							methods.Add(token.token);
 						else
-							throw new CompileException(line: token.originalLine, $"Duplicate definition of function \"{token.token}\"");
+							throw new CompileException(token: token, $"Duplicate definition of function \"{token.token}\"");
 					}else if(token.type == AsmTokenType.MethodEnd){
 						localVars.Clear();
 					}else if(t > 0 && tokens[0] == Tokens.GlobalVar && tokens[t].type == AsmTokenType.VariableName){
 						if(!globalVars.Contains(token.token))
 							globalVars.Add(token.token);
 						else
-							throw new CompileException(line: token.originalLine, $"Duplicate definition of global variable \"{token.token}\"");
+							throw new CompileException(token: token, $"Duplicate definition of global variable \"{token.token}\"");
 					}else if(t > 0 && tokens[0] == Tokens.LocalVar && tokens[t].type == AsmTokenType.VariableName){
 						if(!localVars.Contains(token.token))
 							localVars.Add(token.token);
 						else
-							throw new CompileException(line: token.originalLine, $"Duplicate definition of local variable \"{token.token}\"");
+							throw new CompileException(token: token, $"Duplicate definition of local variable \"{token.token}\"");
 					}
 				}
 			}
@@ -418,6 +421,9 @@ namespace CSASM{
 		static IMethod iprimitive_get_Value;
 		static ITypeDefOrRef indexer;
 		static IMethod indexer_ctor;
+		static IMethod console_get_BackgroundColor, console_set_BackgroundColor, console_get_BufferHeight, console_set_BufferHeight, console_get_BufferWidth, console_set_BufferWidth,
+			console_get_CapsLock, console_get_CursorLeft, console_set_CursorLeft, console_get_CursorTop, console_set_CursorTop, console_get_ForegroundColor, console_set_ForegroundColor,
+			console_get_Title, console_set_Title, console_get_WindowHeight, console_set_WindowHeight, console_get_WindowWidth, console_set_WindowWidth;
 
 		private static void Construct(ModuleDefUser mod, AsmFile source){
 			Importer importer = new Importer(mod);
@@ -427,12 +433,42 @@ namespace CSASM{
 			ImportMethod<Type>(mod, "GetMethod", new Type[]{ typeof(string), typeof(Type[]) }, out _, out IMethod type_GetMethod);
 			ImportStaticField(mod, typeof(Type), "EmptyTypes", out IField type_EmptyTypes);
 
+			if(reportTranspiledCode)
+				Console.WriteLine();
+
+			//Get references to Console properties
+			ImportStaticMethod(mod, typeof(Console), "get_BackgroundColor", null,                               out console_get_BackgroundColor);
+			ImportStaticMethod(mod, typeof(Console), "set_BackgroundColor", new Type[]{ typeof(ConsoleColor) }, out console_set_BackgroundColor);
+			ImportStaticMethod(mod, typeof(Console), "get_BufferHeight",    null,                               out console_get_BufferHeight);
+			ImportStaticMethod(mod, typeof(Console), "set_BufferHeight",    new Type[]{ typeof(int) },          out console_set_BufferHeight);
+			ImportStaticMethod(mod, typeof(Console), "get_BufferWidth",     null,                               out console_get_BufferWidth);
+			ImportStaticMethod(mod, typeof(Console), "set_BufferWidth",     new Type[]{ typeof(int) },          out console_set_BufferWidth);
+			ImportStaticMethod(mod, typeof(Console), "get_CapsLock",        null,                               out console_get_CapsLock);
+			ImportStaticMethod(mod, typeof(Console), "get_CursorLeft",      null,                               out console_get_CursorLeft);
+			ImportStaticMethod(mod, typeof(Console), "set_CursorLeft",      new Type[]{ typeof(int) },          out console_set_CursorLeft);
+			ImportStaticMethod(mod, typeof(Console), "get_CursorTop",       null,                               out console_get_CursorTop);
+			ImportStaticMethod(mod, typeof(Console), "set_CursorTop",       new Type[]{ typeof(int) },          out console_set_CursorTop);
+			ImportStaticMethod(mod, typeof(Console), "get_ForegroundColor", null,                               out console_get_ForegroundColor);
+			ImportStaticMethod(mod, typeof(Console), "set_ForegroundColor", new Type[]{ typeof(ConsoleColor) }, out console_set_ForegroundColor);
+			ImportStaticMethod(mod, typeof(Console), "get_Title",           null,                               out console_get_Title);
+			ImportStaticMethod(mod, typeof(Console), "set_Title",           new Type[]{ typeof(string) },       out console_set_Title);
+			ImportStaticMethod(mod, typeof(Console), "get_WindowHeight",    null,                               out console_get_WindowHeight);
+			ImportStaticMethod(mod, typeof(Console), "set_WindowHeight",    new Type[]{ typeof(int) },          out console_set_WindowHeight);
+			ImportStaticMethod(mod, typeof(Console), "get_WindowWidth",     null,                               out console_get_WindowWidth);
+			ImportStaticMethod(mod, typeof(Console), "set_WindowWidth",     new Type[]{ typeof(int) },          out console_set_WindowWidth);
+
 			//Get a string[] reference
 			var string_array_ref = importer.Import(typeof(string[]));
+
+			if(reportTranspiledCode)
+				Console.WriteLine();
 
 			//Import references from CSASM.Core
 			ImportMethod<CSASMStack>(mod, "Push", new Type[]{ typeof(object) }, out _, out csasmStack_Push);
 			ImportMethod<CSASMStack>(mod, "Pop",  null,                         out _, out csasmStack_Pop);
+
+			if(reportTranspiledCode)
+				Console.WriteLine();
 			
 			ImportStaticField(mod, typeof(Ops), "stack", out ops_stack);
 			ImportStaticField(mod, typeof(Ops), "_reg_a", out ops_reg_a);
@@ -446,22 +482,33 @@ namespace CSASM{
 			ImportStaticMethod(mod, typeof(Ops), "get_Comparison", null,                       out ops_get_Comparison);
 			ImportStaticMethod(mod, typeof(Ops), "set_Comparison", new Type[]{ typeof(bool) }, out ops_set_Comparison);
 
+			if(reportTranspiledCode)
+				Console.WriteLine();
+
 			ImportStaticMethod(mod, typeof(Sandbox), "Main", new Type[]{ typeof(System.Reflection.MethodInfo), typeof(int), typeof(string[]) }, out IMethod main);
+
+			if(reportTranspiledCode)
+				Console.WriteLine();
 
 			ImportMethod<SbytePrimitive>(mod,  ".ctor", new Type[]{ typeof(int) },    out prim_sbyte,  out prim_sbyte_ctor);
 			ImportMethod<BytePrimitive>(mod,   ".ctor", new Type[]{ typeof(int) },    out prim_byte,   out prim_byte_ctor);
 			ImportMethod<ShortPrimitive>(mod,  ".ctor", new Type[]{ typeof(int) },    out prim_short,  out prim_short_ctor);
 			ImportMethod<UshortPrimitive>(mod, ".ctor", new Type[]{ typeof(int) },    out prim_ushort, out prim_ushort_ctor);
 			ImportMethod<IntPrimitive>(mod,    ".ctor", new Type[]{ typeof(int) },    out prim_int,    out prim_int_ctor);
-			ImportMethod<UintPrimitive>(mod,   ".ctor", new Type[]{ typeof(int) },    out prim_uint,   out prim_uint_ctor);
-			ImportMethod<LongPrimitive>(mod,   ".ctor", new Type[]{ typeof(int) },    out prim_long,   out prim_long_ctor);
-			ImportMethod<UlongPrimitive>(mod,  ".ctor", new Type[]{ typeof(int) },    out prim_ulong,  out prim_ulong_ctor);
+			ImportMethod<UintPrimitive>(mod,   ".ctor", new Type[]{ typeof(uint) },   out prim_uint,   out prim_uint_ctor);
+			ImportMethod<LongPrimitive>(mod,   ".ctor", new Type[]{ typeof(long) },   out prim_long,   out prim_long_ctor);
+			ImportMethod<UlongPrimitive>(mod,  ".ctor", new Type[]{ typeof(ulong) },  out prim_ulong,  out prim_ulong_ctor);
 			ImportMethod<FloatPrimitive>(mod,  ".ctor", new Type[]{ typeof(float) },  out prim_float,  out prim_float_ctor);
 			ImportMethod<DoublePrimitive>(mod, ".ctor", new Type[]{ typeof(double) }, out prim_double, out prim_double_ctor);
 
-			ImportMethod<IPrimitive>(mod, "get_Value", null, out _, out iprimitive_get_Value);
+			if(reportTranspiledCode)
+				Console.WriteLine();
 
+			ImportMethod<IPrimitive>(mod, "get_Value", null, out _, out iprimitive_get_Value);
 			ImportMethod<Indexer>(mod, ".ctor", new Type[]{ typeof(uint) }, out indexer, out indexer_ctor);
+
+			if(reportTranspiledCode)
+				Console.WriteLine();
 			
 			CilBody body;
 			//Create the class that'll hold the Main method
@@ -474,6 +521,9 @@ namespace CSASM{
 
 			//Compile the methods now so that the Main function can access "csasm_main"
 			CompileMethodsAndGlobals(mod, asmClass, source);
+
+			if(reportTranspiledCode)
+				Console.WriteLine();
 
 			//Create the entry point
 			var entry = new MethodDefUser("Main", MethodSig.CreateStatic(mod.CorLibTypes.Int32, string_array_ref.ToTypeSig().ToSZArraySig()),
@@ -549,7 +599,7 @@ namespace CSASM{
 							throw new CompileException(token.originalLine, "Variable declaration was invalid");
 
 						AsmToken name = line[1];
-						TypeSig sig = GetSigFromCSASMType(mod, line[3].token, i);
+						TypeSig sig = GetSigFromCSASMType(mod, line[3].token, token.originalLine);
 						//Ignore local variables in this step
 						if(token == Tokens.GlobalVar){
 							if(inMethodDef)
@@ -663,7 +713,7 @@ namespace CSASM{
 							throw new CompileException(token.originalLine, "Variable declaration was invalid");
 
 						AsmToken name = line[1];
-						TypeSig sig = GetSigFromCSASMType(mod, line[3].token, i);
+						TypeSig sig = GetSigFromCSASMType(mod, line[3].token, token.originalLine);
 						//Ignore global variables in this step
 						if(token == Tokens.LocalVar){
 							if(curMethod is null)
@@ -732,7 +782,7 @@ namespace CSASM{
 						if(token.token == "br" || token.token == "brtrue" || token.token == "brfalse"){
 							//Emit the instructions
 							if(token.token != "br"){
-								ImportStaticMethod(mod, typeof(Core.Utility), "BrResult", null, out IMethod checkBr);
+								IMethod checkBr = GetExternalMethod(mod, typeof(Core.Utility), "BrResult");
 
 								curMethod.Body.Instructions.Add(OpCodes.Call.ToInstruction(checkBr));
 							}
@@ -821,22 +871,50 @@ namespace CSASM{
 			method = methodName == ".ctor"
 				? importer.Import(typeof(T).GetConstructor(methodParams ?? Type.EmptyTypes))
 				: importer.Import(typeof(T).GetMethod(methodName, methodParams ?? Type.EmptyTypes));
+
+			if(reportTranspiledCode){
+				if(method != null)
+					Console.WriteLine($"Found method \"{method.FullName}\" in type \"{typeof(T).FullName}\"");
+				else
+					Console.WriteLine($"Unable to find method \"{methodName}\" in type {typeof(T).FullName}");
+			}
 		}
 
 		private static void ImportField<T>(ModuleDefUser mod, string fieldName, out ITypeDefOrRef type, out IField field){
 			Importer importer = new Importer(mod, ImporterOptions.TryToUseDefs);
 			type = importer.ImportAsTypeSig(typeof(T)).ToTypeDefOrRef();
 			field = importer.Import(typeof(T).GetField(fieldName));
+
+			if(reportTranspiledCode){
+				if(field != null)
+					Console.WriteLine($"Found field \"{field.FullName}\" in type \"{typeof(T).FullName}\"");
+				else
+					Console.WriteLine($"Unable to find field \"{fieldName}\" in type {typeof(T).FullName}");
+			}
 		}
 
 		private static void ImportStaticMethod(ModuleDefUser mod, Type type, string methodName, Type[] methodParams, out IMethod method){
 			Importer importer = new Importer(mod, ImporterOptions.TryToUseDefs);
 			method = importer.Import(type.GetMethod(methodName, methodParams ?? Type.EmptyTypes));
+
+			if(reportTranspiledCode){
+				if(method != null)
+					Console.WriteLine($"Found method \"{method.FullName}\" in type \"{type.FullName}\"");
+				else
+					Console.WriteLine($"Unable to find method \"{methodName}\" in type {type.FullName}");
+			}
 		}
 
 		private static void ImportStaticField(ModuleDefUser mod, Type type, string fieldName, out IField field){
 			Importer importer = new Importer(mod, ImporterOptions.TryToUseDefs);
 			field = importer.Import(type.GetField(fieldName));
+
+			if(reportTranspiledCode){
+				if(field != null)
+					Console.WriteLine($"Found field \"{field.FullName}\" in type \"{type.FullName}\"");
+				else
+					Console.WriteLine($"Unable to find field \"{fieldName}\" in type {type.FullName}");
+			}
 		}
 
 		private static TypeSig GetSigFromCSASMType(ModuleDefUser mod, string type, int line){
@@ -870,29 +948,75 @@ namespace CSASM{
 			};
 		}
 
+		private static readonly string[] registers = new string[]{
+			"$a",
+			
+			"$1",
+			"$2",
+			"$3",
+			"$4",
+			"$5",
+
+			"$f.c",
+			"$f.o",
+			
+			"$con.bcol",
+			"$con.bh",
+			"$con.bw",
+			"$con.caps",
+			"$con.cx",
+			"$con.cy",
+			"$con.fcol",
+			"$con.ttl",
+			"$con.wh",
+			"$con.ww"
+		};
+
+		private static Dictionary<string, (IMethod, Type)> instructionMethods = new Dictionary<string, (IMethod, Type)>();
+
+		private static IMethod GetOpsMethod(ModuleDefUser mod, string name, Type[] argTypes = null){
+			IMethod method;
+
+			if(!instructionMethods.ContainsKey(name)){
+				ImportStaticMethod(mod, typeof(Ops), name, argTypes ?? Type.EmptyTypes, out method);
+				instructionMethods[name] = (method, typeof(Ops));
+			}else{
+				var existing = instructionMethods[name];
+				if(existing.Item2 != typeof(Ops))
+					throw new CompileException($"Method \"{name}\" was declared in a class other than CSASM.Core.Ops");
+				method = existing.Item1;
+			}
+
+			return method;
+		}
+
+		private static IMethod GetExternalMethod(ModuleDefUser mod, Type declaringType, string name, Type[] argTypes = null){
+			IMethod method;
+
+			if(!instructionMethods.ContainsKey(name)){
+				ImportStaticMethod(mod, declaringType, name, argTypes ?? Type.EmptyTypes, out method);
+				instructionMethods[name] = (method, declaringType);
+			}else{
+				var existing = instructionMethods[name];
+				if(existing.Item2 != declaringType)
+					throw new CompileException($"Method \"{name}\" was declared in a class other than \"{declaringType.FullName}\"");
+				method = existing.Item1;
+			}
+
+			return method;
+		}
+
 		private static void CompileInstruction(ModuleDefUser mod, CilBody body, List<FieldDefUser> globals, List<AsmToken> tokens, int curToken, int line){
 			AsmToken token = tokens[curToken];
 			if(curToken != 0)
-				throw new CompileException(line: line, $"Instruction token \"{token.token}\" had other tokens before it");
+				throw new CompileException(token: token, $"Instruction token \"{token.token}\" had other tokens before it");
 
-			string argToken = tokens.Count > 1 ? tokens[1].token : string.Empty;
+			string argToken = tokens.Count > 1 ? tokens[1].token : null;
 			bool registerArg = false;
 
 			if(tokens.Count > 1){
 				//Handle register keywords
-				argToken = argToken switch{
-					"$a" => "_reg_a",
-					"$1" => "_reg_1",
-					"$2" => "_reg_2",
-					"$3" => "_reg_3",
-					"$4" => "_reg_4",
-					"$5" => "_reg_5",
-					"$f.c" => "Carry",
-					"$f.o" => "Comparison",
-					_ => argToken
-				};
-
-				registerArg = argToken != tokens[1].token;
+				registerArg = registers.Contains(argToken);
 			}
 
 			//Unquote the string or char
@@ -906,45 +1030,78 @@ namespace CSASM{
 
 			#region Functions
 			void ConvIntPrimToInt32(){
+				//(int)((IntPrimitive)stack.Pop()).Value
 				body.Instructions.Add(OpCodes.Unbox_Any.ToInstruction(prim_int));
-
 				body.Instructions.Add(OpCodes.Box.ToInstruction(prim_int));
-
 				body.Instructions.Add(OpCodes.Callvirt.ToInstruction(iprimitive_get_Value));
-
 				body.Instructions.Add(OpCodes.Unbox_Any.ToInstruction(mod.CorLibTypes.Int32.ToTypeDefOrRef()));
 			}
 
 			#region Loading
 			void LdRegister(){
 				body.Instructions.Add(argToken switch{
-					"_reg_a" => OpCodes.Ldsfld.ToInstruction(ops_reg_a),
-					"_reg_1" => OpCodes.Ldsfld.ToInstruction(ops_reg_1),
-					"_reg_2" => OpCodes.Ldsfld.ToInstruction(ops_reg_2),
-					"_reg_3" => OpCodes.Ldsfld.ToInstruction(ops_reg_3),
-					"_reg_4" => OpCodes.Ldsfld.ToInstruction(ops_reg_4),
-					"_reg_5" => OpCodes.Ldsfld.ToInstruction(ops_reg_5),
-					"Carry" => OpCodes.Call.ToInstruction(ops_get_Carry),
-					"Comparison" => OpCodes.Call.ToInstruction(ops_get_Comparison),
-					_ => throw new CompileException(line: line, "Invalid register name")
+					"$a" => OpCodes.Ldsfld.ToInstruction(ops_reg_a),
+					"$1" => OpCodes.Ldsfld.ToInstruction(ops_reg_1),
+					"$2" => OpCodes.Ldsfld.ToInstruction(ops_reg_2),
+					"$3" => OpCodes.Ldsfld.ToInstruction(ops_reg_3),
+					"$4" => OpCodes.Ldsfld.ToInstruction(ops_reg_4),
+					"$5" => OpCodes.Ldsfld.ToInstruction(ops_reg_5),
+					"$f.c" => OpCodes.Call.ToInstruction(ops_get_Carry),
+					"$f.o" => OpCodes.Call.ToInstruction(ops_get_Comparison),
+					"$con.bcol" => OpCodes.Call.ToInstruction(console_get_BackgroundColor),
+					"$con.bh" => OpCodes.Call.ToInstruction(console_get_BufferHeight),
+					"$con.bw" => OpCodes.Call.ToInstruction(console_get_BufferWidth),
+					"$con.caps" => OpCodes.Call.ToInstruction(console_get_CapsLock),
+					"$con.cx" => OpCodes.Call.ToInstruction(console_get_CursorLeft),
+					"$con.cy" => OpCodes.Call.ToInstruction(console_get_CursorTop),
+					"$con.fcol" => OpCodes.Call.ToInstruction(console_get_ForegroundColor),
+					"$con.ttl" => OpCodes.Call.ToInstruction(console_get_Title),
+					"$con.wh" => OpCodes.Call.ToInstruction(console_get_WindowHeight),
+					"$con.ww" => OpCodes.Call.ToInstruction(console_get_WindowWidth),
+					_ => throw new CompileException(token: token, "Invalid register name")
 				});
 
-				if(argToken == "Carry" || argToken == "Comparison")
+				if(argToken == "$f.c" || argToken == "$f.o" || argToken == "$con.caps")
 					body.Instructions.Add(OpCodes.Box.ToInstruction(mod.CorLibTypes.Boolean));
+				else if(argToken.StartsWith("$con.") && argToken != "$con.ttl"){
+					body.Instructions.Add(OpCodes.Newobj.ToInstruction(prim_int_ctor));
+					body.Instructions.Add(OpCodes.Box.ToInstruction(prim_int));
+				}
 			}
 
 			void LdRegisterNoFlags(string instruction){
-				body.Instructions.Add(OpCodes.Ldsfld.ToInstruction(argToken switch{
-					"_reg_a" => ops_reg_a,
-					"_reg_1" => ops_reg_1,
-					"_reg_2" => ops_reg_2,
-					"_reg_3" => ops_reg_3,
-					"_reg_4" => ops_reg_4,
-					"_reg_5" => ops_reg_5,
-					"Carry" => throw new CompileException(line: line, $"Carry flag register cannot be used with the \"{instruction}\" instruction"),
-					"Comparison" => throw new CompileException(line: line, $"Comparison flag register cannot be used with the \"{instruction}\" instruction"),
-					_ => throw new CompileException(line: line, "Invalid register name")
-				}));
+				if(!argToken.StartsWith("$con.")){
+					body.Instructions.Add(OpCodes.Ldsfld.ToInstruction(argToken switch{
+						"$a" => ops_reg_a,
+						"$1" => ops_reg_1,
+						"$2" => ops_reg_2,
+						"$3" => ops_reg_3,
+						"$4" => ops_reg_4,
+						"$5" => ops_reg_5,
+						"$f.c" => throw new CompileException(token: token, $"Carry flag register cannot be used with the \"{instruction}\" instruction"),
+						"$f.o" => throw new CompileException(token: token, $"Comparison flag register cannot be used with the \"{instruction}\" instruction"),
+						_ => throw new CompileException(token: token, "Invalid register name")
+					}));
+				}else{
+					body.Instructions.Add(OpCodes.Call.ToInstruction(argToken switch{
+						"$con.bcol" => console_get_BackgroundColor,
+						"$con.bh" => console_get_BufferHeight,
+						"$con.bw" => console_get_BufferWidth,
+						"$con.caps" => console_get_CapsLock,
+						"$con.cx" => console_get_CursorLeft,
+						"$con.cy" => console_get_CursorTop,
+						"$con.fcol" => console_get_ForegroundColor,
+						"$con.ttl" => console_get_Title,
+						"$con.wh" => console_get_WindowHeight,
+						"$con.ww" => console_get_WindowWidth,
+						_ => throw new CompileException(token: token, "Invalid register name")
+					}));
+
+					if(argToken == "$con.caps")
+						body.Instructions.Add(OpCodes.Box.ToInstruction(mod.CorLibTypes.Boolean));
+					if(argToken == "$con.bcol" || argToken == "$con.fcol")
+						body.Instructions.Add(OpCodes.Newobj.ToInstruction(prim_int_ctor));
+				}
 			}
 
 			void LdNonRegister(){
@@ -984,7 +1141,7 @@ namespace CSASM{
 							ulong _ => prim_ulong_ctor,
 							float _ => prim_float_ctor,
 							double _ => prim_double_ctor,
-							_ => throw new CompileException(line: line, $"Invalid CSASM primitive type: {Utility.GetAsmType(value.GetType())}")
+							_ => throw new CompileException(token: token, $"Invalid CSASM primitive type: {Utility.GetAsmType(value.GetType())}")
 						};
 						ITypeDefOrRef primType = value switch{
 							sbyte _ => prim_sbyte,
@@ -997,7 +1154,7 @@ namespace CSASM{
 							ulong _ => prim_ulong,
 							float _ => prim_float,
 							double _ => prim_double,
-							_ => throw new CompileException(line: line, $"Invalid CSASM primitive type: {Utility.GetAsmType(value.GetType())}")
+							_ => throw new CompileException(token: token, $"Invalid CSASM primitive type: {Utility.GetAsmType(value.GetType())}")
 						};
 						if(value is double d)
 							body.Instructions.Add(OpCodes.Ldc_R8.ToInstruction(d));
@@ -1019,17 +1176,36 @@ namespace CSASM{
 
 			#region Storing
 			void StRegisterNoFlags(){
-				body.Instructions.Add(argToken switch{
-					"_reg_a" => OpCodes.Stsfld.ToInstruction(ops_reg_a),
-					"_reg_1" => OpCodes.Stsfld.ToInstruction(ops_reg_1),
-					"_reg_2" => OpCodes.Stsfld.ToInstruction(ops_reg_2),
-					"_reg_3" => OpCodes.Stsfld.ToInstruction(ops_reg_3),
-					"_reg_4" => OpCodes.Stsfld.ToInstruction(ops_reg_4),
-					"_reg_5" => OpCodes.Stsfld.ToInstruction(ops_reg_5),
-					"Carry" => throw new CompileException(line: line, "Carry flag should be set/cleared using the \"clf.c\" and \"stf.c\" instructions"),
-					"Comparison" => throw new CompileException(line: line, "Comparison flag should be set/cleared using the \"clf.o\" and \"stf.o\" instructions"),
-					_ => throw new CompileException(line: line, "Invalid register name")
-				});
+				if(!argToken.StartsWith("$con.")){
+					body.Instructions.Add(argToken switch{
+						"$a" => OpCodes.Stsfld.ToInstruction(ops_reg_a),
+						"$1" => OpCodes.Stsfld.ToInstruction(ops_reg_1),
+						"$2" => OpCodes.Stsfld.ToInstruction(ops_reg_2),
+						"$3" => OpCodes.Stsfld.ToInstruction(ops_reg_3),
+						"$4" => OpCodes.Stsfld.ToInstruction(ops_reg_4),
+						"$5" => OpCodes.Stsfld.ToInstruction(ops_reg_5),
+						"$f.c" => throw new CompileException(token: token, "Carry flag should be set/cleared using the \"clf.c\" and \"stf.c\" instructions"),
+						"$f.o" => throw new CompileException(token: token, "Comparison flag should be set/cleared using the \"clf.o\" and \"stf.o\" instructions"),
+						_ => throw new CompileException(token: token, "Invalid register name")
+					});
+				}else{
+					if(argToken != "$con.caps" || argToken != "$con.ttl")
+						ConvIntPrimToInt32();
+
+					body.Instructions.Add(OpCodes.Call.ToInstruction(argToken switch{
+						"$con.bcol" => console_set_BackgroundColor,
+						"$con.bh" => console_set_BufferHeight,
+						"$con.bw" => console_set_BufferWidth,
+						"$con.caps" => throw new CompileException(token: token, "Register \"$con.caps\" cannot be assigned a value"),
+						"$con.cx" => console_set_CursorLeft,
+						"$con.cy" => console_set_CursorTop,
+						"$con.fcol" => console_set_ForegroundColor,
+						"$con.ttl" => console_set_Title,
+						"$con.wh" => console_set_WindowHeight,
+						"$con.ww" => console_set_WindowWidth,
+						_ => throw new CompileException(token: token, "Invalid register name")
+					}));
+				}
 			}
 
 			void StVariable(string instruction){
@@ -1052,18 +1228,20 @@ namespace CSASM{
 					}
 				}
 
-				throw new CompileException(line: line, $"\"{instruction}\" instruction argument did not correspond to a register, global field or local field");
+				throw new CompileException(token: token, $"\"{instruction}\" instruction argument did not correspond to a register, global field or local field");
 			}
 			#endregion
 			#endregion
 
+			Local local;
+			FieldDefUser global;
 			switch(token.token){
 				case "call":
 					if(registerArg)
-						throw new CompileException(line: line, "\"call\" instruction argument must be the name of an existing function");
+						throw new CompileException(token: token, "\"call\" instruction argument must be the name of an existing function");
 
 					if(!CodeGenerator.IsValidLanguageIndependentIdentifier(argToken))
-						throw new CompileException(line: line, "Instruction argument did not refer to a valid function name");
+						throw new CompileException(token: token, "Instruction argument did not refer to a valid function name");
 
 					method = TryFindMethod(mod, argToken);
 
@@ -1091,22 +1269,23 @@ namespace CSASM{
 					break;
 				case "conv":
 					if(registerArg)
-						throw new CompileException(line: line, "Expected a type indicator for the \"conv\" instruction");
+						throw new CompileException(token: token, "Expected a type indicator for the \"conv\" instruction");
 					if(!Utility.IsCSASMType(argToken))
-						throw new CompileException(line: line, $"Invalid type: {argToken}");
+						throw new CompileException(token: token, $"Invalid type: {argToken}");
 
-					ImportStaticMethod(mod, typeof(Ops), "func_conv", new Type[]{ typeof(string) }, out method);
+					method = GetOpsMethod(mod, "func_conv", new Type[]{ typeof(string) });
+
 					body.Instructions.Add(OpCodes.Ldstr.ToInstruction(argToken));
 					body.Instructions.Add(OpCodes.Call.ToInstruction(method));
 
 					break;
 				case "conv.a":
 					if(registerArg)
-						throw new CompileException(line: line, "Expected a type indicator for the \"conv.a\" instruction");
+						throw new CompileException(token: token, "Expected a type indicator for the \"conv.a\" instruction");
 					if(!Utility.IsCSASMType(argToken))
-						throw new CompileException(line: line, $"Invalid type: {argToken}");
+						throw new CompileException(token: token, $"Invalid type: {argToken}");
 
-					ImportStaticMethod(mod, typeof(Ops), "func_conv_a", new Type[]{ typeof(string) }, out method);
+					method = GetOpsMethod(mod, "func_conv_a", new Type[]{ typeof(string) });
 					body.Instructions.Add(OpCodes.Ldstr.ToInstruction(argToken));
 					body.Instructions.Add(OpCodes.Call.ToInstruction(method));
 
@@ -1117,12 +1296,22 @@ namespace CSASM{
 
 					CompileInstruction(mod, body, globals, new List<AsmToken>(){ instr, arg }, 0, line);
 
-					ImportStaticMethod(mod, typeof(Ops), "func_dec", null, out method);
+					method = GetOpsMethod(mod, "func_dec", null);
 					body.Instructions.Add(OpCodes.Call.ToInstruction(method));
 
 					instr.token = "pop";
 					
 					CompileInstruction(mod, body, globals, new List<AsmToken>(){ instr, arg }, 0, line);
+					break;
+				case "in":
+					if(registerArg){
+						//Argument is a register
+						LdRegisterNoFlags("in");
+					}else
+						LdNonRegister();
+
+					method = GetOpsMethod(mod, "func_in", new Type[]{ typeof(string) });
+					body.Instructions.Add(OpCodes.Call.ToInstruction(method));
 					break;
 				case "inc":
 					instr.token = "push";
@@ -1130,15 +1319,35 @@ namespace CSASM{
 
 					CompileInstruction(mod, body, globals, new List<AsmToken>(){ instr, arg }, 0, line);
 
-					ImportStaticMethod(mod, typeof(Ops), "func_inc", null, out method);
+					method = GetOpsMethod(mod, "func_inc", null);
 					body.Instructions.Add(OpCodes.Call.ToInstruction(method));
 
 					instr.token = "pop";
 					
 					CompileInstruction(mod, body, globals, new List<AsmToken>(){ instr, arg }, 0, line);
 					break;
+				case "ink":
+					if(registerArg){
+						//Argument is a register
+						LdRegisterNoFlags("ink");
+					}else
+						LdNonRegister();
+
+					method = GetOpsMethod(mod, "func_ink", new Type[]{ typeof(string) });
+					body.Instructions.Add(OpCodes.Call.ToInstruction(method));
+					break;
+				case "inki":
+					if(registerArg){
+						//Argument is a register
+						LdRegisterNoFlags("inki");
+					}else
+						LdNonRegister();
+
+					method = GetOpsMethod(mod, "func_inki", new Type[]{ typeof(string) });
+					body.Instructions.Add(OpCodes.Call.ToInstruction(method));
+					break;
 				case "exit":
-					ImportStaticMethod(mod, typeof(Environment), "Exit", new Type[]{ typeof(int) }, out IMethod environment_Exit);
+					IMethod environment_Exit = GetExternalMethod(mod, typeof(Environment), "Exit", new Type[]{ typeof(int) });
 
 					body.Instructions.Add(OpCodes.Ldc_I4_0.ToInstruction());
 					body.Instructions.Add(OpCodes.Call.ToInstruction(environment_Exit));
@@ -1154,25 +1363,34 @@ namespace CSASM{
 					}else
 						LdNonRegister();
 
-					ImportStaticMethod(mod, typeof(Ops), "func_interp", new Type[]{ typeof(string) }, out method);
+					method = GetOpsMethod(mod, "func_interp", new Type[]{ typeof(string) });
 					body.Instructions.Add(OpCodes.Call.ToInstruction(method));
 					break;
 				case "is":
 					if(!Utility.IsCSASMType(tokens[1].token))
-						throw new CompileException(line: line, $"Expected a type argument for instruction \"is\", found \"{tokens[1].token}\" instead");
+						throw new CompileException(token: token, $"Expected a type argument for instruction \"is\", found \"{tokens[1].token}\" instead");
 
 					body.Instructions.Add(OpCodes.Ldstr.ToInstruction(argToken));
 
-					ImportStaticMethod(mod, typeof(Ops), "func_is", new Type[]{ typeof(string) }, out method);
+					method = GetOpsMethod(mod, "func_is", new Type[]{ typeof(string) });
 					body.Instructions.Add(OpCodes.Call.ToInstruction(method));
 					break;
 				case "is.a":
 					if(!Utility.IsCSASMType(tokens[1].token))
-						throw new CompileException(line: line, $"Expected a type argument for instruction \"is.a\", found \"{tokens[1].token}\" instead");
+						throw new CompileException(token: token, $"Expected a type argument for instruction \"is.a\", found \"{tokens[1].token}\" instead");
 
 					body.Instructions.Add(OpCodes.Ldstr.ToInstruction(argToken));
 
-					ImportStaticMethod(mod, typeof(Ops), "func_is_a", new Type[]{ typeof(string) }, out method);
+					method = GetOpsMethod(mod, "func_is_a", new Type[]{ typeof(string) });
+					body.Instructions.Add(OpCodes.Call.ToInstruction(method));
+					break;
+				case "isarr":
+					if(!Utility.IsCSASMType(tokens[1].token))
+						throw new CompileException(token: token, $"Expected a type argument for instruction \"isarr\", found \"{tokens[1].token}\" instead");
+
+					body.Instructions.Add(OpCodes.Ldstr.ToInstruction(argToken));
+
+					method = GetOpsMethod(mod, "func_isarr", new Type[]{ typeof(string) });
 					body.Instructions.Add(OpCodes.Call.ToInstruction(method));
 					break;
 				case "lda":
@@ -1201,20 +1419,32 @@ namespace CSASM{
 						body.Instructions.Add(OpCodes.Conv_U4.ToInstruction());
 						body.Instructions.Add(OpCodes.Newobj.ToInstruction(indexer_ctor));
 
-						ImportStaticMethod(mod, typeof(Ops), "func_ldelem", new Type[]{ typeof(Indexer) }, out method);
+						method = GetOpsMethod(mod, "func_ldelem", new Type[]{ typeof(Indexer) });
 						body.Instructions.Add(OpCodes.Call.ToInstruction(method));
 
 						break;
-					}else
-						throw new CompileException(line: line, "Ldelem instruction argument was invalid");
+					}else if((local = TryGetLocal(body.Variables, argToken)) != null){
+						if(local.Type.FullName != "CSASM.Core.IntPrimitive")
+							throw new CompileException(token: token, "Local variable argument's type was not <i32>");
 
-					ImportStaticMethod(mod, typeof(Ops), "func_ldelem", new Type[]{ typeof(int) }, out method);
+						body.Instructions.Add(OpCodes.Ldloc.ToInstruction(local));
+						ConvIntPrimToInt32();
+					}else if((global = TryGetGlobal(globals, argToken)) != null){
+						if(global.FieldType.FullName != "CSASM.Core.IntPrimitive")
+							throw new CompileException(token: token, "Local variable argument's type was not <i32>");
+
+						body.Instructions.Add(OpCodes.Ldsfld.ToInstruction(global));
+						ConvIntPrimToInt32();
+					}else
+						throw new CompileException(token: token, "Ldelem instruction argument was invalid");
+
+					method = GetOpsMethod(mod, "func_ldelem", new Type[]{ typeof(int) });
 					body.Instructions.Add(OpCodes.Call.ToInstruction(method));
 					break;
 				case "newarr":
 					Type arrType = Utility.GetCsharpType(argToken);
 					if(arrType.GetElementType()?.IsArray ?? false)
-						throw new CompileException(line: line, "Arrays of arrays is currently not a supported feature of CSASM");
+						throw new CompileException(token: token, "Arrays of arrays is currently not a supported feature of CSASM");
 
 					body.Instructions.Add(OpCodes.Ldsfld.ToInstruction(ops_stack));
 
@@ -1292,14 +1522,26 @@ namespace CSASM{
 						body.Instructions.Add(OpCodes.Conv_U4.ToInstruction());
 						body.Instructions.Add(OpCodes.Newobj.ToInstruction(indexer_ctor));
 
-						ImportStaticMethod(mod, typeof(Ops), "func_stelem", new Type[]{ typeof(Indexer) }, out method);
+						method = GetOpsMethod(mod, "func_stelem", new Type[]{ typeof(Indexer) });
 						body.Instructions.Add(OpCodes.Call.ToInstruction(method));
 
 						break;
-					}else
-						throw new CompileException(line: line, "Stelem instruction argument was invalid");
+					}else if((local = TryGetLocal(body.Variables, argToken)) != null){
+						if(local.Type.FullName != "CSASM.Core.IntPrimitive")
+							throw new CompileException(token: token, "Local variable argument's type was not <i32>");
 
-					ImportStaticMethod(mod, typeof(Ops), $"func_stelem", new Type[]{ typeof(int) }, out method);
+						body.Instructions.Add(OpCodes.Ldloc.ToInstruction(local));
+						ConvIntPrimToInt32();
+					}else if((global = TryGetGlobal(globals, argToken)) != null){
+						if(global.FieldType.FullName != "CSASM.Core.IntPrimitive")
+							throw new CompileException(token: token, "Local variable argument's type was not <i32>");
+
+						body.Instructions.Add(OpCodes.Ldsfld.ToInstruction(global));
+						ConvIntPrimToInt32();
+					}else
+						throw new CompileException(token: token, "Stelem instruction argument was invalid");
+
+					method = GetOpsMethod(mod, $"func_stelem", new Type[]{ typeof(int) });
 					body.Instructions.Add(OpCodes.Call.ToInstruction(method));
 					break;
 				case "stf.c":
@@ -1313,22 +1555,18 @@ namespace CSASM{
 					body.Instructions.Add(OpCodes.Call.ToInstruction(ops_set_Comparison));
 					break;
 				case "throw":
-					Local local = !registerArg ? TryGetLocal(body.Variables, argToken) : null;
-					FieldDefUser global = !registerArg ? TryGetGlobal(globals, argToken) : null;
-
-					//A simple check for strings would be to check that the token starts and ends with "
-					if(!registerArg && !(local != null || global != null) && !(argToken.StartsWith("\"") && argToken.EndsWith("\"")))
-						throw new CompileException(line: line, "Expected a string constant, <str> variable or a register as the argument of the \"throw\" instruction");
+					local = !registerArg ? TryGetLocal(body.Variables, argToken) : null;
+					global = !registerArg ? TryGetGlobal(globals, argToken) : null;
 
 					//Flag registers aren't valid arguments either
-					if(registerArg && (argToken == "Carry" || argToken == "Comparison"))
-						throw new CompileException(line: line, "The flag registers aren't valid arguments for the \"throw\" instruction");
+					if(registerArg && (argToken == "$f.c" || argToken == "$f.o"))
+						throw new CompileException(token: token, "The flag registers aren't valid arguments for the \"throw\" instruction");
 
 					if(local != null && local.Type != mod.CorLibTypes.String)
-						throw new CompileException(line: line, "Local variable type was not <str>");
+						throw new CompileException(token: token, "Local variable type was not <str>");
 
 					if(global != null && global.FieldType != mod.CorLibTypes.String)
-						throw new CompileException(line: line, "Global variable type was not <str>");
+						throw new CompileException(token: token, "Global variable type was not <str>");
 
 					if(!registerArg){
 						LdNonRegister();
@@ -1339,16 +1577,16 @@ namespace CSASM{
 
 					body.Instructions.Add(OpCodes.Unbox_Any.ToInstruction(mod.CorLibTypes.String));
 
-					ImportStaticMethod(mod, typeof(Ops), $"func_throw", new Type[]{ typeof(string) }, out method);
+					method = GetOpsMethod(mod, $"func_throw", new Type[]{ typeof(string) });
 					body.Instructions.Add(OpCodes.Call.ToInstruction(method));
 
 					break;
 				default:
-					ImportStaticMethod(mod, typeof(Ops), $"func_{token.token.Replace(".", "_")}", null, out method);
+					method = GetOpsMethod(mod, $"func_{token.token.Replace(".", "_")}", null);
 					if(method != null)
 						body.Instructions.Add(OpCodes.Call.ToInstruction(method));
 					else
-						throw new CompileException(line: line, $"Invalid instruction: {token.token}");
+						throw new CompileException(token: token, $"Invalid instruction: {token.token}");
 					break;
 			}
 		}

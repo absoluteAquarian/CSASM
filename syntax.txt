@@ -40,6 +40,8 @@ DEFINED TOKENS
 #ifdef <macro> .......... Paired with #endif.  Starts the beginning of a preprocessor conditional.  If <macro> exists, the conditional body is included during the compilation process.
 #ifndef <macro> ......... Paired with #endif.  Starts the beginning of a preprocessor conditional.  If <macro> does not exist, the conditional body is included during the compilation process.
 
+#undef <name> ........... Removes a macro definition, if it exists
+
 end ..................... Ends a method declaration
 
 func <name>: ............ Begins a method declaration whose name is <name>
@@ -77,7 +79,7 @@ DEFINED INSTRUCTIONS
 When popping elements from the stack, "A" will refer to the topmost element and "B" will refer to the element after that
 
 abs ..................... Pops A, then pushes its absolute value
-add ..................... Pops A and B, then pushes A + B
+add ..................... Pops A and B, then pushes A + B.  If either A or B is a <str>, string concatenation is performed instead, then the result is pushed to the stack.
 asl ..................... Pops A (an integer), then pushes A << 1
 asr ..................... Pops A (an integer), then pushes A >> 1
 
@@ -89,35 +91,43 @@ brtrue <label> .......... Jumps execution to <label> iff the accumulator contain
 call <func> ............. Calls a function.  The function's arguments must be pushed to the stack before this instruction
 clf.c ................... Clears the Carry flag
 clf.o ................... Clears the Comparison flag
-comp .................... Pops A and B and sets the Comparison flag iff A == B
-comp.gt ................. Pops A and B and sets the Comparison flag iff B > A
-comp.lt ................. Pops A and B and sets the Comparison flag iff B < A
+cls ..................... Clears the console
+comp .................... Pops A and B, then sets the Comparison flag iff A == B
+comp.gt ................. Pops A and B, then sets the Comparison flag iff B > A
+comp.gte ................ Pops A and B, then sets the Comparison flag iff B >= A
+comp.lt ................. Pops A and B, then sets the Comparison flag iff B < A
+comp.lte ................ Pops A and B, then sets the Comparison flag iff B <= A
+conrc ................... Reverts the console's colours to its defaults
 conv <type> ............. Pops A, converts it to <type>, then pushes the result
 conv.a <type> ........... Converts the value in the accumulator to the given type
 
 dec <var> ............... Decrements an integer stored in <var> by one
-div ..................... Pops A and B, then pushes A / B
+div ..................... Pops A and B, then pushes B / A.  If B is a <str> and A is a <str> or <char>, the result of "B.Split(A)" (an <~arr:str>) is pushed to the stack instead.
 dup ..................... Pops A, then pushes A twice
 
 exit .................... Stops the program
 
+in <str> ................ Prints <str>, then waits for a newline-terminated string of text.  The input is pushed to the stack
 inc <var> ............... Increments an integer stored in <var> by one
+ink <str> ............... Prints <str>, then waits for the user to press a key.  The <char> key input is pushed to the stack
+inki <str> .............. Prints <str>, then waits for the user to press a key (the key will not appear in the command prompt).  The <char> key is pushed to the stack
 interp <str> ............ Pops A (an <obj> array), then uses its values to modify <str>
-is <type> ............... Pops A and sets the Comparison flag iff A has the same type as <type>
+is <type> ............... Pops A, then sets the Comparison flag iff A has the same type as <type>
 is.a <type> ............. Sets the Comparison flag iff the value contained in the accumulator has the same type as <type>
+isarr <type> ............ Pops A, then sets the Comparison flag iff A is an array and its element type is <type>.  For checking if A is just an array, pass in obj as the <type>
 
 lda <var> ............... Stores <var> into the accumulator
 ldelem <index> .......... Pops A (an array instance), then pushes the value contained in A at the zero-based index <index>
 len ..................... Pops A (an array instance), then pushes the length of A
 
-mul ..................... Pops A and B, then pushes A * B
+mul ..................... Pops A and B, then pushes A * B.  If B is a <str> and A is a positive integer, B will be repeated A times in one <str> and that <str> is pushed to the stack instead.
 
 neg ..................... Pops A, then pushes -A
 newarr <type> ........... Pops A (an <i32>), then pushes a new <type> array instance whose length is A
 not ..................... Pops A (an integer), then pushes ~A
 
 pop <var> ............... Pops A, then stores it in <var>
-popd .................... Pops A, then discards it
+popd .................... Pops A
 print ................... Pops A, then prints its string representation to the console
 print.n ................. Pops A, then prints its string representation to the console with a newline appended
 push <arg> .............. Pushes <arg> to the stack
@@ -130,10 +140,10 @@ sta <var> ............... Stores the value in the accumulator in <var>
 stelem <index> .......... Pops A (an array instance) and B (the value to store), then stores B in A at the zero-based index <index>
 stf.c ................... Sets the Carry flag
 stf.o ................... Sets the Comparison flag
-sub ..................... Pops A and B, then pushes A - B
+sub ..................... Pops A and B, then pushes B - A.  If B is a <str> and A is a <str> or <char>, all instances of A will be removed from B and the result will be pushed to the stack.
 
 throw <str> ............. Throws a "ThrowException" with whose message is <str>
-type .................... Pops A, then pushes a string representing its type
+type .................... Pops A, then pushes a <str> representing its type
 
 
 DEFINED REGISTERS
@@ -146,6 +156,17 @@ $2 ......................   ---
 $3 ......................   ---
 $4 ......................   ---
 $5 ......................   ---
+
+$con.bcol ............... The current color of the background.  Expected values are between 0 and 15, inclusive.
+$con.bh ................. The console's buffer height
+$con.bw ................. The console's buffer width
+$con.caps ............... Whether the CAPS LOCK key is active
+$con.cx ................. The X-position of the cursor in the console buffer
+$con.cy ................. The Y-position of the cursor in the console buffer
+$con.fcol ............... The current color of the foreground.  Expected values are between 0 and 15, inclusive.
+$con.ttl ................ The console's title
+$con.wh ................. The console's window height
+$con.ww ................. The console's window width
 
 $f.c .................... The Carry flag
 $f.o .................... The Comparison flag

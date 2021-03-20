@@ -1,0 +1,30 @@
+﻿.asm_name Strings
+
+; Showcasing how strings can be manipulated
+func main:
+	; String concatenation
+	push "Hello,"
+	push " World!"
+	add
+	print.n
+
+	; String removal
+	push "AAA AB AAA AAA AC AAA AD"
+	push "AAA "
+	sub
+	print.n
+
+	; String splitting
+	push "Words split on.period bounds.example"
+	push "."
+	div
+	print.n
+
+	; String duplication
+	push "Yes "
+	push 10
+	mul
+	print.n
+
+	ret
+end

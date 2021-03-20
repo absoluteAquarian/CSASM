@@ -1,0 +1,45 @@
+﻿.asm_name ConsoleExample
+.stack 100
+
+.include ..\Headers\stdlib.csah
+
+func main:
+	cls
+	push 10
+	push 5
+	call mvcurs
+
+	push "Hello, World!"
+	print
+
+	push 0
+	push 13
+	call mvcurs
+
+	push COLOR_YELLOW
+	pop $con.fcol
+
+	push COLOR_DARKYELLOW
+	pop $con.bcol
+
+	push "Console manipulation"
+	print
+
+	conrc
+
+	push "\n\n"
+	print
+
+	.local input : str
+	in "Enter a string: "
+	pop input
+
+	push "Your input was \""
+	push input
+	add
+	push "\""
+	add
+	print.n
+
+	ret
+end

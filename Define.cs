@@ -39,5 +39,16 @@ namespace CSASM{
 			define = default;
 			return false;
 		}
+
+		public bool RemoveDefine(string name){
+			for(int i= 0; i < Count; i++){
+				if(this[i].name == name){
+					RemoveAt(i);
+					return true;
+				}
+			}
+
+			return false;
+		}
 	}
 }
