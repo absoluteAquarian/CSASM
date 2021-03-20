@@ -79,6 +79,9 @@
     <Compile Include="Tokens.cs" />
     <Compile Include="Utility.cs" />
     <Content Include="docs.txt" />
+    <None Include="copyheaders.bat">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
     <None Include="Headers\stdlib.csah" />
     <Content Include="syntax.txt">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
@@ -109,4 +112,7 @@
   </ItemGroup>
   <ItemGroup />
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
+  <PropertyGroup>
+    <PostBuildEvent>copyheaders.bat</PostBuildEvent>
+  </PropertyGroup>
 </Project>

@@ -1,7 +1,7 @@
 ﻿.asm_name ConsoleExample
 .stack 100
 
-.include ..\Headers\stdlib.csah
+.include <stdlib>
 
 func main:
 	cls

@@ -160,7 +160,7 @@ namespace CSASM{
 						Console.WriteLine($"Found dependency \"{Path.GetFileName(targetFile)}\" in source file \"{Path.GetFileName(currentCompilingFile)}\"");
 
 					if(!File.Exists(targetFile))
-						throw new CompileException(line: tuple.index, $"Target file \"{targetFile}\" does not exist.");
+						throw new CompileException(line: tuple.index, $"Target file \"{Path.GetFileName(targetFile)}\" does not exist.");
 
 					//Remove the existing token line since the ".include" won't be needed anymore
 					ret.tokens.RemoveAt(tuple.index);
@@ -332,6 +332,30 @@ namespace CSASM{
 						//If the token is surrounded with quotes, remove them
 						if(word.StartsWith("\"") && word.EndsWith("\""))
 							word = word.Substring(1).Substring(0, word.Length - 2);
+						else if(word.StartsWith("<") && word.EndsWith(">")){
+							//If the path is surrounded with < >, then the path is relative to the compiler
+							word = word.Substring(1).Substring(0, word.Length - 2);
+							word += ".csah";
+
+							if(Path.GetInvalidPathChars().Any(c => word.IndexOf(c) != -1))
+								throw new CompileException(line: i, "Path for \".include\" token was invalid");
+
+							if(Path.IsPathRooted(word))
+								throw new CompileException(line: i, "\".include\" paths cannot be rooted");
+
+							if(word.StartsWith(".")){
+								//The . and .. indicators can't be used here
+								throw new CompileException(line: i, "Relative folder paths cannot be used in a header \".include\" token");
+							}
+
+							word = Path.Combine(Directory.GetCurrentDirectory(), "Headers", word);
+
+							goto skipIncludeRest;
+						}
+
+						//Verify that the path could exist
+						if(Path.GetInvalidPathChars().Any(c => word.IndexOf(c) != -1))
+							throw new CompileException(line: i, "Path for \".include\" token was invalid");
 
 						//The path will be relative to the source file, not the compiler exe
 						string directoryPath = Directory.GetParent(sourceFile).FullName;
@@ -352,10 +376,6 @@ namespace CSASM{
 								word = word.Substring("..\\".Length);
 							}
 						}
-
-						//Verify that the path could exist
-						if(Path.GetInvalidPathChars().Any(c => word.IndexOf(c) != -1))
-							throw new CompileException(line: i, "Path for \".include\" token was invalid");
 
 						word = Path.Combine(directoryPath, word);
 

@@ -25,6 +25,7 @@ DEFINED TOKENS
 .hide ................... Marks a function as "private".  Methods default to "public" if this token isn't used
 
 .include <path> ......... Inserts the contents of the file located at <path> into the current file during the compilation process.
+                          If <path> is surrounded by <> (e.g. ".include <header>"), the file is expected to be found in the "Headers" folder where the compiler executable is located.
 
 .lbl <name> ............. Defines a jump/branch label whose name is <name>.  Labels must be contained in methods and are bound to the scope of the method
 .local .................. Marks atoken as a local variable
