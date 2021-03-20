@@ -198,19 +198,21 @@ namespace CSASM{
 		}
 
 		private static void ReportIL(ModuleDefUser mod){
+			string exeRoot = System.Reflection.Assembly.GetEntryAssembly().Location;
+
 			foreach(var type in mod.Types){
 				//<Module> isn't one of the classes.  Just ignore it
 				if(type.Name == "<Module>")
 					continue;
 
-				string folder = Path.Combine($"build - {asmName}", type.Name);
+				string folder = Path.Combine(exeRoot, $"build - {asmName}", type.Name);
 
 				if(reportTranspiledCode)
 					Directory.CreateDirectory(folder);
 
 				//If the class has globals, write them to the file
 				if(reportTranspiledCode && type.HasFields){
-					string fieldsFile = Path.Combine($"build - {asmName}", $"{type.Name} - Globals.txt");
+					string fieldsFile = Path.Combine(exeRoot, $"build - {asmName}", $"{type.Name} - Globals.txt");
 					using(StreamWriter writer = new StreamWriter(File.Open(fieldsFile, FileMode.Create))){
 						writer.WriteLine($"IL Type \"{type.Name}\"");
 						writer.WriteLine();
@@ -414,7 +416,7 @@ namespace CSASM{
 		}
 
 		static IMethod csasmStack_Push, csasmStack_Pop;
-		static IMethod ops_get_Carry, ops_set_Carry, ops_get_Comparison, ops_set_Comparison;
+		static IMethod ops_get_Carry, ops_set_Carry, ops_get_Comparison, ops_set_Comparison, ops_get_Conversion, ops_set_Conversion;
 		static IField ops_stack, ops_reg_a, ops_reg_1, ops_reg_2, ops_reg_3, ops_reg_4, ops_reg_5;
 		static ITypeDefOrRef prim_sbyte, prim_byte, prim_short, prim_ushort, prim_int, prim_uint, prim_long, prim_ulong, prim_float, prim_double;
 		static IMethod prim_sbyte_ctor, prim_byte_ctor, prim_short_ctor, prim_ushort_ctor, prim_int_ctor, prim_uint_ctor, prim_long_ctor, prim_ulong_ctor, prim_float_ctor, prim_double_ctor;
@@ -481,6 +483,8 @@ namespace CSASM{
 			ImportStaticMethod(mod, typeof(Ops), "set_Carry",      new Type[]{ typeof(bool) }, out ops_set_Carry);
 			ImportStaticMethod(mod, typeof(Ops), "get_Comparison", null,                       out ops_get_Comparison);
 			ImportStaticMethod(mod, typeof(Ops), "set_Comparison", new Type[]{ typeof(bool) }, out ops_set_Comparison);
+			ImportStaticMethod(mod, typeof(Ops), "get_Conversion", null,                       out ops_get_Conversion);
+			ImportStaticMethod(mod, typeof(Ops), "set_Conversion", new Type[]{ typeof(bool) }, out ops_set_Conversion);
 
 			if(reportTranspiledCode)
 				Console.WriteLine();
@@ -605,7 +609,8 @@ namespace CSASM{
 							if(inMethodDef)
 								throw new CompileException(token.originalLine, "Global variable cannot be declared in the scope of a function");
 
-							var global = new FieldDefUser(name.token, new FieldSig(sig), FieldAttributes.Public | FieldAttributes.Static);
+							var attrs = FieldAttributes.Public | FieldAttributes.Static;
+							var global = new FieldDefUser(name.token, new FieldSig(sig), attrs);
 							globals.Add(global);
 							mainClass.Fields.Add(global);
 						}
@@ -958,6 +963,7 @@ namespace CSASM{
 			"$5",
 
 			"$f.c",
+			"$f.n",
 			"$f.o",
 			
 			"$con.bcol",
@@ -1047,6 +1053,7 @@ namespace CSASM{
 					"$4" => OpCodes.Ldsfld.ToInstruction(ops_reg_4),
 					"$5" => OpCodes.Ldsfld.ToInstruction(ops_reg_5),
 					"$f.c" => OpCodes.Call.ToInstruction(ops_get_Carry),
+					"$f.n" => OpCodes.Call.ToInstruction(ops_get_Conversion),
 					"$f.o" => OpCodes.Call.ToInstruction(ops_get_Comparison),
 					"$con.bcol" => OpCodes.Call.ToInstruction(console_get_BackgroundColor),
 					"$con.bh" => OpCodes.Call.ToInstruction(console_get_BufferHeight),
@@ -1061,7 +1068,7 @@ namespace CSASM{
 					_ => throw new CompileException(token: token, "Invalid register name")
 				});
 
-				if(argToken == "$f.c" || argToken == "$f.o" || argToken == "$con.caps")
+				if(argToken == "$f.c" || argToken == "$f.n" || argToken == "$f.o" || argToken == "$con.caps")
 					body.Instructions.Add(OpCodes.Box.ToInstruction(mod.CorLibTypes.Boolean));
 				else if(argToken.StartsWith("$con.") && argToken != "$con.ttl"){
 					body.Instructions.Add(OpCodes.Newobj.ToInstruction(prim_int_ctor));
@@ -1079,6 +1086,7 @@ namespace CSASM{
 						"$4" => ops_reg_4,
 						"$5" => ops_reg_5,
 						"$f.c" => throw new CompileException(token: token, $"Carry flag register cannot be used with the \"{instruction}\" instruction"),
+						"$f.n" => throw new CompileException(token: token, $"Conversion flag register cannot be used with the \"{instruction}\" instruction"),
 						"$f.o" => throw new CompileException(token: token, $"Comparison flag register cannot be used with the \"{instruction}\" instruction"),
 						_ => throw new CompileException(token: token, "Invalid register name")
 					}));
@@ -1185,6 +1193,7 @@ namespace CSASM{
 						"$4" => OpCodes.Stsfld.ToInstruction(ops_reg_4),
 						"$5" => OpCodes.Stsfld.ToInstruction(ops_reg_5),
 						"$f.c" => throw new CompileException(token: token, "Carry flag should be set/cleared using the \"clf.c\" and \"stf.c\" instructions"),
+						"$f.n" => throw new CompileException(token: token, "Conversion flag should be set/cleared using the \"clf.n\" and \"stf.n\" instructions"),
 						"$f.o" => throw new CompileException(token: token, "Comparison flag should be set/cleared using the \"clf.o\" and \"stf.o\" instructions"),
 						_ => throw new CompileException(token: token, "Invalid register name")
 					});
@@ -1263,6 +1272,10 @@ namespace CSASM{
 					body.Instructions.Add(OpCodes.Ldc_I4_0.ToInstruction());
 					body.Instructions.Add(OpCodes.Call.ToInstruction(ops_set_Carry));
 					break;
+				case "clf.n":
+					body.Instructions.Add(OpCodes.Ldc_I4_0.ToInstruction());
+					body.Instructions.Add(OpCodes.Call.ToInstruction(ops_set_Conversion));
+					break;
 				case "clf.o":
 					body.Instructions.Add(OpCodes.Ldc_I4_0.ToInstruction());
 					body.Instructions.Add(OpCodes.Call.ToInstruction(ops_set_Comparison));
@@ -1302,6 +1315,11 @@ namespace CSASM{
 					instr.token = "pop";
 					
 					CompileInstruction(mod, body, globals, new List<AsmToken>(){ instr, arg }, 0, line);
+					break;
+				case "extern":
+					method = GetOpsMethod(mod, "func_extern", new Type[]{ typeof(string) });
+					body.Instructions.Add(OpCodes.Ldstr.ToInstruction(argToken));
+					body.Instructions.Add(OpCodes.Call.ToInstruction(method));
 					break;
 				case "in":
 					if(registerArg){
@@ -1546,12 +1564,14 @@ namespace CSASM{
 					break;
 				case "stf.c":
 					body.Instructions.Add(OpCodes.Ldc_I4_0.ToInstruction());
-
 					body.Instructions.Add(OpCodes.Call.ToInstruction(ops_set_Carry));
+					break;
+				case "stf.n":
+					body.Instructions.Add(OpCodes.Ldc_I4_0.ToInstruction());
+					body.Instructions.Add(OpCodes.Call.ToInstruction(ops_set_Conversion));
 					break;
 				case "stf.o":
 					body.Instructions.Add(OpCodes.Ldc_I4_0.ToInstruction());
-
 					body.Instructions.Add(OpCodes.Call.ToInstruction(ops_set_Comparison));
 					break;
 				case "throw":

@@ -15,6 +15,7 @@
 		VariableName,
 		VariableTokenSeparator,
 		VariableType,
+		VariableReadonly,
 
 		Instruction,
 		InstructionOperand,

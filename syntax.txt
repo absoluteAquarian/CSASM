@@ -91,6 +91,7 @@ brtrue <label> .......... Jumps execution to <label> iff the accumulator contain
 
 call <func> ............. Calls a function.  The function's arguments must be pushed to the stack before this instruction
 clf.c ................... Clears the Carry flag
+clf.n ................... Clears the Conversion flag
 clf.o ................... Clears the Comparison flag
 cls ..................... Clears the console
 comp .................... Pops A and B, then sets the Comparison flag iff A == B
@@ -99,7 +100,8 @@ comp.gte ................ Pops A and B, then sets the Comparison flag iff B >= A
 comp.lt ................. Pops A and B, then sets the Comparison flag iff B < A
 comp.lte ................ Pops A and B, then sets the Comparison flag iff B <= A
 conrc ................... Reverts the console's colours to its defaults
-conv <type> ............. Pops A, converts it to <type>, then pushes the result
+conv <type> ............. Pops A, converts it to <type>, then pushes the result.  If A is a <str> and <type> is a number type, the Conversion flag will be set if the instruction was
+                          successful, otherwise a zero for that type will be pushed to the stack instead.
 conv.a <type> ........... Converts the value in the accumulator to the given type
 
 dec <var> ............... Decrements an integer stored in <var> by one
@@ -107,6 +109,7 @@ div ..................... Pops A and B, then pushes B / A.  If B is a <str> and 
 dup ..................... Pops A, then pushes A twice
 
 exit .................... Stops the program
+extern <func> ........... Calls an external function from the C# standard library
 
 in <str> ................ Prints <str>, then waits for a newline-terminated string of text.  The input is pushed to the stack
 inc <var> ............... Increments an integer stored in <var> by one
@@ -133,6 +136,7 @@ print ................... Pops A, then prints its string representation to the c
 print.n ................. Pops A, then prints its string representation to the console with a newline appended
 push <arg> .............. Pushes <arg> to the stack
 
+rem ..................... Pops A and B, then pushes B % A
 ret ..................... Returns from a method
 rol ..................... Pops A (an integer), pushes (A << 1) | Carry, then sets or clears the Carry flag based on the Most Significant Bit of A
 ror ..................... Pops A (an integer), pushes (A >> 1) | (Carry << (sizeof(A) * 8 - 1)), then sets or clears the Carry flag based on the Least Significant Bit of A
@@ -140,6 +144,7 @@ ror ..................... Pops A (an integer), pushes (A >> 1) | (Carry << (size
 sta <var> ............... Stores the value in the accumulator in <var>
 stelem <index> .......... Pops A (an array instance) and B (the value to store), then stores B in A at the zero-based index <index>
 stf.c ................... Sets the Carry flag
+stf.n ................... Sets the Conversion flag
 stf.o ................... Sets the Comparison flag
 sub ..................... Pops A and B, then pushes B - A.  If B is a <str> and A is a <str> or <char>, all instances of A will be removed from B and the result will be pushed to the stack.
 
@@ -170,4 +175,5 @@ $con.wh ................. The console's window height
 $con.ww ................. The console's window width
 
 $f.c .................... The Carry flag
+$f.n .................... The Conversion flag
 $f.o .................... The Comparison flag
