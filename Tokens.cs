@@ -87,6 +87,7 @@ namespace CSASM{
 			"print",
 			"print.n",
 			"ret",
+			"rem",
 			"rol",
 			"ror",
 			"stf.c",
@@ -175,6 +176,7 @@ namespace CSASM{
 			["print.n"] =  Pop1 + Push0,
 			["push"] =     Pop0 + Push1,
 			["ret"] =      Pop0 + Push0,
+			["rem"] =      Pop2 + Push1,
 			["rol"] =      Pop1 + Push1,
 			["ror"] =      Pop1 + Push1,
 			["sta"] =      Pop0 + Push0,
@@ -193,8 +195,9 @@ namespace CSASM{
 				if(!stackUsage.ContainsKey(str))
 					throw new InstructionException($"Instruction \"{str}\" does not have a stack usage defined");
 
+			//"extern" is a special case.  That instruction will have to have its stack usage determined on the fly
 			foreach(string str in instructionWordsWithParameters)
-				if(!stackUsage.ContainsKey(str))
+				if(!stackUsage.ContainsKey(str) && str != "extern")
 					throw new InstructionException($"Instruction \"{str}\" does not have a stack usage defined");
 		}
 
