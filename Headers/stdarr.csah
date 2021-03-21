@@ -93,6 +93,7 @@ func arrsum:
 		pop __arrsum_sum
 
 		inc $1
+		push $1
 		push __arrsum_array
 		len
 		comp.gte

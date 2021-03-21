@@ -169,6 +169,10 @@ namespace CSASM{
 					//Remove the existing token line since the ".include" won't be needed anymore
 					ret.tokens.RemoveAt(tuple.index);
 
+					//Shift the tokens back one
+					for(int ii = i + 1; ii < allIncludes.Count; ii++)
+						allIncludes[ii] = (allIncludes[ii].list, allIncludes[ii].index - 1);
+
 					string old = currentCompilingFile;
 					currentCompilingFile = targetFile;
 					//Get the tokens and inject them into this file
