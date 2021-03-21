@@ -1,0 +1,107 @@
+﻿#ifndef HEADER_STDARR
+#define HEADER_STDARR
+
+; Array Element Copy
+; Arguments:  array1, array2, index
+; Purpose:  Copies array1[index] to array2[index]
+func copy:
+	.local __copy_array1 : obj
+	.local __copy_array2 : obj
+	.local __copy_index : i32
+
+	clf.o
+	pop __copy_index
+	pop __copy_array2
+	pop __copy_array1
+
+	; Verify that both the arrays are actually arrays
+	push __copy_array1
+	isarr obj
+	push $f.o
+	brtrue checkArr2
+	throw "Source object was not an array instance"
+	
+.lbl checkArr2
+	clf.o
+	push __copy_array2
+	isarr obj
+	push $f.o
+	brtrue compute
+	throw "Destination object was not an array instance"
+
+.lbl compute
+	push __copy_array2
+	push __copy_array1
+	ldelem __copy_index
+	stelem __copy_index
+	
+	ret
+end
+
+; Array Sum
+; Arguments:  array
+; Purpose:  Sums the values in an array
+func arrsum:
+	.local __arrsum_array : obj
+	.local __arrsum_sum : obj
+	pop __arrsum_array
+
+	clf.o
+	push __arrsum_array
+	isarr obj
+	push $f.o
+	brtrue checkArrType
+	throw "Argument was not an array instance"
+
+.lbl checkArrType
+	clf.o
+	push __arrsum_array
+	isarr str
+	push __arrsum_array
+	isarr char
+	push $f.o
+	brfalse calcSum
+	throw "Argument cannot be an <~arr:str> or <~arr:char>"
+
+.lbl calcSum
+	clf.o
+	push __arrsum_array
+	len
+	push 1
+	comp
+	push $f.o
+	brfalse initLoop
+	push __arrsum_array
+	ldelem 0
+	ret
+
+.lbl initLoop
+	push $1
+	push 1
+	pop $1
+
+	push __arrsum_array
+	ldelem 0
+	pop __arrsum_sum
+
+	.lbl loop
+		clf.o
+		push __arrsum_sum
+		push __arrsum_array
+		ldelem $1
+		add
+		pop __arrsum_sum
+
+		inc $1
+		push __arrsum_array
+		len
+		comp.gte
+		push $f.o
+		brfalse loop
+
+	pop $1
+	push __arrsum_sum
+	ret
+end
+
+#endif ; HEADER_STDARR

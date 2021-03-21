@@ -5,4 +5,100 @@
 #define MATH_E   2.718281828459
 #define MATH_PHI 1.61803398875
 
+; Factorial
+; Arguments:  target
+; Purpose:  Calculates the factoral of the target integer
+func fact:
+	.local __fact_iter : i64
+	.local __fact_target : i64
+	.local __fact_prod : i64
+
+	clf.o
+	pop __fact_target
+	push __fact_target
+	push 0
+	comp.lt
+	push $f.o
+	brfalse checkLessTwo
+	throw "\"fact\" argument must be an integer >= 0"
+
+.lbl checkLessTwo
+	clf.o
+	push __fact_target
+	push 2
+	comp.lt
+	push $f.o
+	brfalse initLoop
+	push 1
+	conv i64
+	ret
+
+.lbl initLoop
+	push 1
+	conv i64
+	dup
+	pop __fact_iter
+	pop __fact_prod
+
+	.lbl loop
+		push __fact_iter
+		push __fact_prod
+		mul
+		pop __fact_prod
+
+		inc __fact_iter
+		push __fact_iter
+		push __fact_target
+		comp.gte
+		push $f.o
+		brfalse loop
+
+	push __fact_prod
+	ret
+end
+
+; Minimum value
+; Arguments:  value1, value2
+; Purpose:  returns the minimum of the two values
+func min:
+	.local __min_value1 : obj
+	.local __min_value2 : obj
+	pop __min_value2
+	pop __min_value1
+
+	clf.o
+	push __min_value1
+	push __min_value2
+	comp.lt
+	push $f.o
+	brtrue firstIsMin
+	push __min_value2
+	ret
+.lbl firstIsMin
+	push __min_value1
+	ret
+end
+
+; Maximum value
+; Arguments:  value1, value2
+; Purpose:  returns the maximum of the two values
+func max:
+	.local __max_value1 : obj
+	.local __max_value2 : obj
+	pop __max_value2
+	pop __max_value1
+
+	clf.o
+	push __max_value1
+	push __max_value2
+	comp.gt
+	push $f.o
+	brtrue firstIsMax
+	push __max_value2
+	ret
+.lbl firstIsMax
+	push __max_value1
+	ret
+end
+
 #endif ; HEADER_STDMATH

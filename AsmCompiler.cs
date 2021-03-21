@@ -15,7 +15,7 @@ using System.Text.RegularExpressions;
 
 namespace CSASM{
 	public static class AsmCompiler{
-		public const string version = "2.1.2.2";
+		public const string version = "2.1.2.3";
 
 		//.asm_name
 		public static string asmName = "csasm_prog";
@@ -28,7 +28,11 @@ namespace CSASM{
 
 		public static string forceOutput;
 
+		public static string ExeDirectory{ get; private set; }
+
 		public static int Main(string[] args){
+			ExeDirectory = Directory.GetParent(System.Reflection.Assembly.GetEntryAssembly().Location).FullName;
+
 			try{
 				return Compile(args);
 			}catch(Exception ex){
@@ -70,7 +74,7 @@ namespace CSASM{
 		private static int Compile(string[] args){
 			if(args.Length == 0 && !Utility.IgnoreFile){
 				//Print help info
-				Console.WriteLine("Expected usage:    csasm <file> [-out:<file>] [-report:<true|false>]");
+				Console.WriteLine("Expected usage:    csasm <file> [-out:<file>] [-report]");
 
 				//Successful exit, but no compile happened
 				return 1;
@@ -84,8 +88,8 @@ namespace CSASM{
 					string arg = args[i];
 					if(arg.StartsWith("-out:"))
 						forceOutput = arg.Substring("-out:".Length);
-					else if(arg.StartsWith("-report:"))
-						bool.TryParse(arg.Substring("-report:".Length), out reportTranspiledCode);
+					else if(arg == "-report")
+						reportTranspiledCode = true;
 				}
 			}
 
@@ -101,8 +105,14 @@ namespace CSASM{
 			if(Path.GetExtension(path) == ".csah")
 				throw new CompileException("CSASM header files cannot be compiled as the source file");
 
+			if(reportTranspiledCode)
+				Console.WriteLine("Tokenizing source file...\n");
+
 			//Any args after the first one are ignored
 			AsmFile file = AsmFile.ParseSourceFile(path);
+
+			if(reportTranspiledCode)
+				Console.WriteLine("Verifying tokens...\n");
 
 			VerifyTokens(file);
 
@@ -113,6 +123,9 @@ namespace CSASM{
 
 				Directory.CreateDirectory(folder);
 			}
+
+			if(reportTranspiledCode)
+				Console.WriteLine("Converting CSASM tokens to MSIL code...\n");
 
 			CompiletoIL(file);
 
@@ -198,21 +211,19 @@ namespace CSASM{
 		}
 
 		private static void ReportIL(ModuleDefUser mod){
-			string exeRoot = System.Reflection.Assembly.GetEntryAssembly().Location;
-
 			foreach(var type in mod.Types){
 				//<Module> isn't one of the classes.  Just ignore it
 				if(type.Name == "<Module>")
 					continue;
 
-				string folder = Path.Combine(exeRoot, $"build - {asmName}", type.Name);
+				string folder = Path.Combine(ExeDirectory, $"build - {asmName}", type.Name);
 
 				if(reportTranspiledCode)
 					Directory.CreateDirectory(folder);
 
 				//If the class has globals, write them to the file
 				if(reportTranspiledCode && type.HasFields){
-					string fieldsFile = Path.Combine(exeRoot, $"build - {asmName}", $"{type.Name} - Globals.txt");
+					string fieldsFile = Path.Combine(ExeDirectory, $"build - {asmName}", $"{type.Name} - Globals.txt");
 					using(StreamWriter writer = new StreamWriter(File.Open(fieldsFile, FileMode.Create))){
 						writer.WriteLine($"IL Type \"{type.Name}\"");
 						writer.WriteLine();
@@ -249,7 +260,7 @@ namespace CSASM{
 							$"\n   Reason: Too many {(total > 0 ? "pushes" : "pops")}");
 
 					if(reportTranspiledCode){
-						Console.WriteLine($"Writing file \"{file}\"...");
+						Console.WriteLine($"Writing file \"{file.Substring(folder.LastIndexOf("Program"))}\"...");
 
 						ReportILMethod(file, method);
 
@@ -263,9 +274,16 @@ namespace CSASM{
 			=> External.StackCalculator.GetMaxStack(method.Body.Instructions, method.Body.ExceptionHandlers, out total);
 
 		private static void VerifyTokens(AsmFile source){
+			if(reportTranspiledCode)
+				Console.WriteLine("Finding \"main\" function...");
+
 			//If no "main" method is defined, throw an error
 			if(source.tokens.TrueForAll(list => list.Count > 0 && list.TrueForAll(t => t.type != AsmTokenType.MethodName || t.token != "main")))
 				throw new CompileException("Function \"main\" was not defined");
+
+			if(reportTranspiledCode)
+				Console.WriteLine("Creating function bodies and global variables...");
+
 			//If there are multiple declarations of a method or variable, throw an error
 			List<string> methods = new List<string>();
 			List<string> globalVars = new List<string>();
@@ -294,8 +312,13 @@ namespace CSASM{
 					}
 				}
 			}
+
+			if(reportTranspiledCode)
+				Console.WriteLine("Finding label targets...");
+
 			//If a branch instruction uses a label that doesn't exist, throw an error
 			List<string> labels = new List<string>();
+			List<List<AsmToken>> branchInstrs = new List<List<AsmToken>>();
 			int methodStart = -1;
 			int methodEnd = -1;
 			for(int i = 0; i < source.tokens.Count; i++){
@@ -304,36 +327,42 @@ namespace CSASM{
 					var token = tokens[t];
 					if(token.type == AsmTokenType.MethodIndicator){
 						methodStart = i;
-						methodEnd = -1;
 						break;
 					}else if(token.type == AsmTokenType.MethodEnd){
 						//Previous code examinations guarantees that this will be the end to a method
-						if(methodEnd == -1){
-							//Jump back to the beginning of the method and examine the branching instructions
-							methodEnd = i;
-							i = methodStart;
-						}else{
-							//The branch instructions for this method have been successfully examined
-							methodStart = -1;
-							methodEnd = -1;
-							labels.Clear();
-						}
+						methodEnd = i;
+						break;
 					}else if(token.type == AsmTokenType.Label && methodEnd == -1){
 						//Only add the label if we're in a method.  If we aren't, throw an exception
 						if(methodStart != -1)
 							labels.Add(tokens[1].token);
 						else
-							throw new CompileException(token.originalLine, "Label token must be within the scope of a function");
+							throw new CompileException(token, "Label token must be within the scope of a function");
 						break;
-					}else if(token.type == AsmTokenType.Instruction && methodEnd != -1 && token.token.StartsWith("br")){
-						//All branch instructions start with "br"
-						//Check that this branch's target exists
-						if(!labels.Contains(tokens[1].token))
-							throw new CompileException(token.originalLine, "Branch instruction did not refer to a valid label target");
+					}else if(token.type == AsmTokenType.Instruction && token.token.StartsWith("br")){
+						branchInstrs.Add(tokens);
 						break;
 					}
 				}
+
+				if(methodStart != -1 && methodEnd != -1){
+					for(int b = 0; b < branchInstrs.Count; b++){
+						//All branch instructions start with "br"
+						//Check that this branch's target exists
+						if(!labels.Contains(branchInstrs[b][1].token))
+							throw new CompileException(branchInstrs[b][0], $"Branch instruction did not refer to a valid label target: {branchInstrs[b][1].token}");
+					}
+
+					methodStart = -1;
+					methodEnd = -1;
+
+					labels.Clear();
+					branchInstrs.Clear();
+				}
 			}
+
+			if(reportTranspiledCode)
+				Console.WriteLine("Finding assembly name and stack size tokens...");
 
 			//Find the assembly name value and stack size tokens and apply them if found
 			bool nameSet = false, stackSet = false;
@@ -343,17 +372,17 @@ namespace CSASM{
 					var token = tokens[t];
 					if(token.type == AsmTokenType.AssemblyNameValue){
 						if(nameSet)
-							throw new CompileException(token.originalLine, "Duplicate assembly name token");
+							throw new CompileException(token, "Duplicate assembly name token");
 
 						asmName = token.token;
 						nameSet = true;
 						break;
 					}else if(token.type == AsmTokenType.StackSize){
 						if(!int.TryParse(token.token, out stackSize))
-							throw new CompileException(token.originalLine, "Stack size wasn't an integer");
+							throw new CompileException(token, "Stack size wasn't an integer");
 
 						if(stackSet)
-							throw new CompileException(token.originalLine, "Dupliate stack size token");
+							throw new CompileException(token, "Dupliate stack size token");
 
 						stackSet = true;
 						break;
@@ -367,6 +396,9 @@ namespace CSASM{
 			//If the assembly name is invalid, throw an error
 			if(!CodeGenerator.IsValidLanguageIndependentIdentifier(asmName))
 				throw new CompileException($"Assembly name was invalid: {asmName}");
+
+			if(reportTranspiledCode)
+				Console.WriteLine($"   Assembly name: {asmName}\n   Stack size: {stackSize}");
 			
 			//If "forceOutput" was set, verify that it's valid
 			if(forceOutput != null && Path.GetExtension(forceOutput) != ".exe")
@@ -598,16 +630,16 @@ namespace CSASM{
 					//All tokens on this line should be only for this as well, so we can just jump straight to the next line
 					if(token.type == AsmTokenType.VariableIndicator){
 						if(t != 0)
-							throw new CompileException(token.originalLine, $"A \"{token.token}\" token had other tokens before it");
+							throw new CompileException(token, $"A \"{token.token}\" token had other tokens before it");
 						if(line.Count != 4)
-							throw new CompileException(token.originalLine, "Variable declaration was invalid");
+							throw new CompileException(token, "Variable declaration was invalid");
 
 						AsmToken name = line[1];
 						TypeSig sig = GetSigFromCSASMType(mod, line[3].token, token.originalLine);
 						//Ignore local variables in this step
 						if(token == Tokens.GlobalVar){
 							if(inMethodDef)
-								throw new CompileException(token.originalLine, "Global variable cannot be declared in the scope of a function");
+								throw new CompileException(token, "Global variable cannot be declared in the scope of a function");
 
 							var attrs = FieldAttributes.Public | FieldAttributes.Static;
 							var global = new FieldDefUser(name.token, new FieldSig(sig), attrs);
@@ -620,15 +652,17 @@ namespace CSASM{
 
 					if(token.type == AsmTokenType.MethodAccessibility){
 						if(methodAccessibilityDefined)
-							throw new CompileException(token.originalLine, "Duplicate method accessibilies defined");
+							throw new CompileException(token, "Duplicate method accessibilies defined");
 
 						if(inMethodDef)
-							throw new CompileException(token.originalLine, $"Token \"{token.token}\" was in an invalid location");
+							throw new CompileException(token, $"Token \"{token.token}\" was in an invalid location");
 
 						methodAccessibilityDefined = true;
 					}else if(token.type == AsmTokenType.MethodIndicator){
-						if(i > 0 && !source.tokens[i - 1].TrueForAll(t => t != Tokens.Func))
-							throw new CompileException(token.originalLine - 1, $"Duplicate \"{token.token}\" tokens on successive lines");
+						if(i > 0 && !source.tokens[i - 1].TrueForAll(t => t != Tokens.Func)){
+							token.originalLine--;
+							throw new CompileException(token, $"Duplicate \"{token.token}\" tokens on successive lines");
+						}
 
 						if(inMethodDef){
 							//Nested function declaration.  Find the start of the previous method
@@ -637,13 +671,13 @@ namespace CSASM{
 								i--;
 
 							//"i" shouldn't be less than 1 here
-							throw new CompileException(token.originalLine, "Function definition was incomplete");
+							throw new CompileException(token, "Function definition was incomplete");
 						}
 
 						if(t != 0)
-							throw new CompileException(token.originalLine, $"A \"{token.token}\" token had other tokens before it");
+							throw new CompileException(token, $"A \"{token.token}\" token had other tokens before it");
 						if(line.Count != 2)
-							throw new CompileException(token.originalLine, "Method declaration was invalid");
+							throw new CompileException(token, "Method declaration was invalid");
 
 						inMethodDef = true;
 						methodAccessibilityDefined = false;
@@ -653,10 +687,10 @@ namespace CSASM{
 						inMethodDef = false;
 
 						if(prevLeadToken == default)
-							throw new CompileException(token.originalLine, "Unexpected function end token");
+							throw new CompileException(token, "Unexpected function end token");
 
 						if(prevLeadToken.token != "ret" && prevLeadToken.token != "exit")
-							throw new CompileException(token.originalLine, "Incomplete function body:  Missing \"exit\" or \"ret\" instruction");
+							throw new CompileException(token, "Incomplete function body:  Missing \"exit\" or \"ret\" instruction");
 
 						break;
 					}
@@ -685,12 +719,12 @@ namespace CSASM{
 
 					if(token.type == AsmTokenType.Label){
 						if(t != 0)
-							throw new CompileException(token.originalLine, $"A \"{token.token}\" token had other tokens before it");
+							throw new CompileException(token, $"A \"{token.token}\" token had other tokens before it");
 						if(line.Count != 2)
-							throw new CompileException(token.originalLine, "Label declaration was invalid");
+							throw new CompileException(token, "Label declaration was invalid");
 
 						if(curLabelMethod is null)
-							throw new CompileException(token.originalLine, "Label declaration was not within the scope of a function");
+							throw new CompileException(token, "Label declaration was not within the scope of a function");
 
 						//Register this label as existing
 						labels[curLabelMethod].Add(line[1].token);
@@ -713,16 +747,16 @@ namespace CSASM{
 					//All tokens on this line should be only for this as well, so we can just jump straight to the next line
 					if(token.type == AsmTokenType.VariableIndicator){
 						if(t != 0)
-							throw new CompileException(token.originalLine, $"A \"{token.token}\" token had other tokens before it");
+							throw new CompileException(token, $"A \"{token.token}\" token had other tokens before it");
 						if(line.Count != 4)
-							throw new CompileException(token.originalLine, "Variable declaration was invalid");
+							throw new CompileException(token, "Variable declaration was invalid");
 
 						AsmToken name = line[1];
 						TypeSig sig = GetSigFromCSASMType(mod, line[3].token, token.originalLine);
 						//Ignore global variables in this step
 						if(token == Tokens.LocalVar){
 							if(curMethod is null)
-								throw new CompileException(token.originalLine, "Local variable definition was not in the scope of a function");
+								throw new CompileException(token, "Local variable definition was not in the scope of a function");
 
 							Local local;
 							curMethod.Body.Variables.Add(local = new Local(sig, name.token));
@@ -743,7 +777,7 @@ namespace CSASM{
 						else if(token == Tokens.Hide)
 							methodAttrs |= MethodAttributes.Private;
 						else
-							throw new CompileException(token.originalLine, $"Invalid token: {token.token}");
+							throw new CompileException(token, $"Invalid token: {token.token}");
 
 						methodAccessibilityDefined = true;
 					}else if(token.type == AsmTokenType.MethodIndicator){
@@ -763,7 +797,7 @@ namespace CSASM{
 
 						if(curMethod.Name == "csasm_main"){
 							if(csasm_main != null)
-								throw new CompileException(token.originalLine, "Duplicate \"main\" function declaration");
+								throw new CompileException(token, "Duplicate \"main\" function declaration");
 
 							csasm_main = curMethod;
 						}
@@ -814,7 +848,7 @@ namespace CSASM{
 
 							if(!labelInstructions[curLabelMethod].ContainsKey(label)){
 								if(!labels[curLabelMethod].Contains(label))
-									throw new CompileException(token.originalLine, $"Label \"{label}\" does not exist in function \"{curLabelMethod}\"");
+									throw new CompileException(token, $"Label \"{label}\" does not exist in function \"{curLabelMethod}\"");
 
 								if(!branchesWaitingForLabel.ContainsKey(label))
 									branchesWaitingForLabel.Add(label, new List<Instruction>());
@@ -1316,6 +1350,14 @@ namespace CSASM{
 					
 					CompileInstruction(mod, body, globals, new List<AsmToken>(){ instr, arg }, 0, line);
 					break;
+				case "exit":
+					IMethod environment_Exit = GetExternalMethod(mod, typeof(Environment), "Exit", new Type[]{ typeof(int) });
+
+					body.Instructions.Add(OpCodes.Ldc_I4_0.ToInstruction());
+					body.Instructions.Add(OpCodes.Call.ToInstruction(environment_Exit));
+
+					body.Instructions.Add(OpCodes.Ret.ToInstruction());
+					break;
 				case "extern":
 					method = GetOpsMethod(mod, "func_extern", new Type[]{ typeof(string) });
 					body.Instructions.Add(OpCodes.Ldstr.ToInstruction(argToken));
@@ -1363,14 +1405,6 @@ namespace CSASM{
 
 					method = GetOpsMethod(mod, "func_inki", new Type[]{ typeof(string) });
 					body.Instructions.Add(OpCodes.Call.ToInstruction(method));
-					break;
-				case "exit":
-					IMethod environment_Exit = GetExternalMethod(mod, typeof(Environment), "Exit", new Type[]{ typeof(int) });
-
-					body.Instructions.Add(OpCodes.Ldc_I4_0.ToInstruction());
-					body.Instructions.Add(OpCodes.Call.ToInstruction(environment_Exit));
-
-					body.Instructions.Add(OpCodes.Ret.ToInstruction());
 					break;
 				case "interp":
 					if(registerArg){

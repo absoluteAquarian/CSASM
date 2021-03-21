@@ -159,8 +159,12 @@ namespace CSASM{
 					if(AsmCompiler.reportTranspiledCode)
 						Console.WriteLine($"Found dependency \"{Path.GetFileName(targetFile)}\" in source file \"{Path.GetFileName(currentCompilingFile)}\"");
 
-					if(!File.Exists(targetFile))
-						throw new CompileException(line: tuple.index, $"Target file \"{Path.GetFileName(targetFile)}\" does not exist.");
+					if(!File.Exists(targetFile)){
+						if(AsmCompiler.reportTranspiledCode)
+							throw new CompileException(line: tuple.index, $"Target file \"{targetFile}\" does not exist.");
+						else
+							throw new CompileException(line: tuple.index, $"Target file \"{Path.GetFileName(targetFile)}\" does not exist.");
+					}
 
 					//Remove the existing token line since the ".include" won't be needed anymore
 					ret.tokens.RemoveAt(tuple.index);
@@ -348,7 +352,7 @@ namespace CSASM{
 								throw new CompileException(line: i, "Relative folder paths cannot be used in a header \".include\" token");
 							}
 
-							word = Path.Combine(Directory.GetCurrentDirectory(), "Headers", word);
+							word = Path.Combine(AsmCompiler.ExeDirectory, "Headers", word);
 
 							goto skipIncludeRest;
 						}

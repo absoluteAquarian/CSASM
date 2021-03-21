@@ -17,47 +17,13 @@
 #define COLOR_YELLOW      14
 #define COLOR_WHITE       15
 
-func copy:
-	; Arguments:  array1, array2, index
-	; Purpose:  Copies array1[index] to array2[index]
-	.local __copy_array1 : obj
-	.local __copy_array2 : obj
-	.local __copy_index : i32
-
-	pop __copy_index
-	pop __copy_array2
-	pop __copy_array1
-
-	; Verify that both the arrays are actually arrays
-	push __copy_array1
-	isarr obj
-	push $f.o
-	brtrue checkArr2
-	throw "Source object was not an array instance"
-	
-.lbl checkArr2
-	clf.o
-	push __copy_array2
-	isarr obj
-	push $f.o
-	brtrue compute
-	throw "Destination object was not an array instance"
-
-.lbl compute
-	push __copy_array2
-	push __copy_array1
-	ldelem __copy_index
-	stelem __copy_index
-	
-	ret
-end
-
 func mvcurs:
 	; Arguments:  x, y
 	; Purpose:  Moves the cursor to the (x, y) position in the console buffer
 	.local __mvcurs_cursX : i32
 	.local __mvcurs_cursY : i32
 
+	clf.o
 	pop __mvcurs_cursY
 	pop __mvcurs_cursX
 

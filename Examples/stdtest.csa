@@ -1,0 +1,41 @@
+﻿.asm_name Standard
+.stack 100
+
+.include <stdlib>
+.include <stdmath>
+.include <stdarr>
+
+func main:
+	.local arr : ~arr:i32,5
+	push arr
+	push 20
+	stelem 0
+
+	push arr
+	push 15
+	stelem 1
+
+	push arr
+	push 18
+	stelem 2
+
+	push arr
+	push 12
+	stelem 3
+
+	push arr
+	push 5
+	stelem 4
+
+	push "Sum of array "
+	push arr
+	add
+	push " is: "
+	add
+	push arr
+	call arrsum
+	add
+	print.n
+
+	ret
+end
