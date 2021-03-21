@@ -76,6 +76,36 @@ func mvcurs:
 	push __mvcurs_cursY
 	pop $con.cy
 
+	clf.o
+
+	ret
+end
+
+; Is an Integer?
+; Arguments:  obj
+; Purpose:  Pushes either True or False if the object on the stack has an integer type
+func isInteger:
+	.local __isInteger_obj : obj
+	pop __isInteger_obj
+
+	clf.o
+	push $a
+	lda __isInteger_obj
+
+	is.a u8
+	is.a u16
+	is.a u32
+	is.a u64
+
+	is.a i8
+	is.a i16
+	is.a i32
+	is.a i64
+	pop $a
+
+	push $f.o
+
+	clf.o
 	ret
 end
 

@@ -54,6 +54,9 @@ func fact:
 		brfalse loop
 
 	push __fact_prod
+
+	clf.o
+
 	ret
 end
 
@@ -73,9 +76,15 @@ func min:
 	push $f.o
 	brtrue firstIsMin
 	push __min_value2
+
+	clf.o
+
 	ret
 .lbl firstIsMin
 	push __min_value1
+
+	clf.o
+
 	ret
 end
 
@@ -95,9 +104,15 @@ func max:
 	push $f.o
 	brtrue firstIsMax
 	push __max_value2
+
+	clf.o
+
 	ret
 .lbl firstIsMax
 	push __max_value1
+
+	clf.o
+
 	ret
 end
 

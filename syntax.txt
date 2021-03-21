@@ -53,7 +53,7 @@ DEFINED TYPES
 
 ~arr:<type>,<i32> ....... A new <type> array instance with <i32> elements
 
-^<i32> .................. An indexing type used for the "ldelem" and "stelem" instructions.  See docs.txt to see how it's used.
+^<i32> .................. An indexing type
 
 char .................... Character literal type
 
@@ -77,17 +77,20 @@ u8 ...................... Unsigned 8-bit integer type
 
 DEFINED INSTRUCTIONS
 ====================
-When popping elements from the stack, "A" will refer to the topmost element and "B" will refer to the element after that
+When popping elements from the stack, "A" will refer to the topmost element, "B" will refer to the element after that and "C" will refer to the element after that
 
 abs ..................... Pops A, then pushes its absolute value
 add ..................... Pops A and B, then pushes A + B.  If either A or B is a <str>, string concatenation is performed instead, then the result is pushed to the stack.
+and ..................... Pops A and B, then pushes A & B
 asl ..................... Pops A (an integer), then pushes A << 1
 asr ..................... Pops A (an integer), then pushes A >> 1
 
-bytes ................... Pops A, then pushes how many bytes of memory A uses.
+bit <u8> ................ Pops A (an integer), then pushes the bit at position A.  If A doesn't refer to a valid bit, 0 is pushed instead
+bits .................... Pops A (an <f32> or <f64>), then pushes an <i32> or <i64> set to the bit representation of A
 br <label> .............. Unconditionally jumps execution to <label>
 brfalse <label> ......... Jumps execution to <label> iff the accumulator contains a null, zero or an empty string
 brtrue <label> .......... Jumps execution to <label> iff the accumulator contains a non-zero value or a non-empty string
+bytes ................... Pops A, then pushes how many bytes of memory A uses.
 
 call <func> ............. Calls a function.  The function's arguments must be pushed to the stack before this instruction
 clf.c ................... Clears the Carry flag
@@ -122,13 +125,15 @@ isarr <type> ............ Pops A, then sets the Comparison flag iff A is an arra
 
 lda <var> ............... Stores <var> into the accumulator
 ldelem <index> .......... Pops A (an array instance), then pushes the value contained in A at the zero-based index <index>
-len ..................... Pops A (an array instance), then pushes the length of A
+len ..................... Pops A (an array instance or a <str>), then pushes the length of A
 
 mul ..................... Pops A and B, then pushes A * B.  If B is a <str> and A is a positive integer, B will be repeated A times in one <str> and that <str> is pushed to the stack instead.
 
 neg ..................... Pops A, then pushes -A
 newarr <type> ........... Pops A (an <i32>), then pushes a new <type> array instance whose length is A
 not ..................... Pops A (an integer), then pushes ~A
+
+or ...................... Pops A and B, then pushes A | B
 
 pop <var> ............... Pops A, then stores it in <var>
 popd .................... Pops A
@@ -147,9 +152,12 @@ stf.c ................... Sets the Carry flag
 stf.n ................... Sets the Conversion flag
 stf.o ................... Sets the Comparison flag
 sub ..................... Pops A and B, then pushes B - A.  If B is a <str> and A is a <str> or <char>, all instances of A will be removed from B and the result will be pushed to the stack.
+substr .................. Pops A (a <str>), B (an <i32> or indexer) and C (an <i32> or indexer), then pushes the substring of A from position B to position C
 
 throw <str> ............. Throws a "ThrowException" with whose message is <str>
 type .................... Pops A, then pushes a <str> representing its type
+
+xor ..................... Pops A and B, then pushes A ^ B
 
 
 DEFINED REGISTERS

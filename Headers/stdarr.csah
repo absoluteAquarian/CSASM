@@ -4,18 +4,18 @@
 ; Array Element Copy
 ; Arguments:  array1, array2, index
 ; Purpose:  Copies array1[index] to array2[index]
-func copy:
-	.local __copy_array1 : obj
-	.local __copy_array2 : obj
-	.local __copy_index : i32
+func arrcopy:
+	.local __arrcopy_array1 : obj
+	.local __arrcopy_array2 : obj
+	.local __arrcopy_index : i32
 
 	clf.o
-	pop __copy_index
-	pop __copy_array2
-	pop __copy_array1
+	pop __arrcopy_index
+	pop __arrcopy_array2
+	pop __arrcopy_array1
 
 	; Verify that both the arrays are actually arrays
-	push __copy_array1
+	push __arrcopy_array1
 	isarr obj
 	push $f.o
 	brtrue checkArr2
@@ -23,18 +23,19 @@ func copy:
 	
 .lbl checkArr2
 	clf.o
-	push __copy_array2
+	push __arrcopy_array2
 	isarr obj
 	push $f.o
 	brtrue compute
 	throw "Destination object was not an array instance"
 
 .lbl compute
-	push __copy_array2
-	push __copy_array1
-	ldelem __copy_index
-	stelem __copy_index
-	
+	push __arrcopy_array2
+	push __arrcopy_array1
+	ldelem __arrcopy_index
+	stelem __arrcopy_index
+
+	clf.o
 	ret
 end
 
@@ -102,6 +103,60 @@ func arrsum:
 
 	pop $1
 	push __arrsum_sum
+
+	clf.o
+	ret
+end
+
+; Array Reverse
+; Arguments:  array
+; Purpose:  Reverses an array on the top of the stack without modifying the array instance
+func arrrev:
+	.local __arrrev_array : obj
+	.local __arrrev_copy : obj
+	.local __arrrev_len : i32
+	.local __arrev_iter : i32
+
+	; "dup" instruction is used to get a clone of the array instance
+	; A clone is needed since creating a new array instance isn't currently possible
+	dup
+	dup
+	pop __arrrev_array
+	pop __arrrev_copy
+	
+	clf.o
+	isarr obj
+	brtrue doReverse
+	throw "Value on stack was not an array instance"
+
+.lbl doReverse
+	clf.o
+
+	push __arrrev_array
+	len
+	dup
+	pop __arrrev_len
+
+	push 1
+	sub
+	pop __arrrev_iter
+
+	.loop
+		push __arrrev_array
+		push __arrrev_copy
+		ldelem __arrrev_iter
+		stelem __arrrev_iter
+
+		dec __arrrev_iter
+		clf.o
+		push __arrrev_iter
+		push 0
+		comp.lt
+		push $f.o
+		brfalse loop
+
+	clf.o
+	push __arrrev_array
 	ret
 end
 

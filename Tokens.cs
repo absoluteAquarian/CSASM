@@ -64,8 +64,10 @@ namespace CSASM{
 		public static readonly List<string> instructionWords = new List<string>(){
 			"abs",
 			"add",
+			"and",
 			"asl",
 			"asr",
+			"bits",
 			"bytes",
 			"clf.c",
 			"clf.n",
@@ -83,6 +85,7 @@ namespace CSASM{
 			"len",
 			"mul",
 			"not",
+			"or",
 			"popd",
 			"print",
 			"print.n",
@@ -94,10 +97,13 @@ namespace CSASM{
 			"stf.n",
 			"stf.o",
 			"sub",
-			"type"
+			"substr",
+			"type",
+			"xor"
 		};
 		//Instructions with an operand
 		public static readonly List<string> instructionWordsWithParameters = new List<string>(){
+			"bit",
 			"br",
 			"brtrue",
 			"brfalse",
@@ -129,12 +135,16 @@ namespace CSASM{
 		private const int Pop0 = 0;
 		private const int Pop1 = -1;
 		private const int Pop2 = -2;
+		private const int Pop3 = -3;
 
 		public static readonly IDictionary<string, int> stackUsage = new Dictionary<string, int>(){
 			["abs"] =      Pop1 + Push1,
 			["add"] =      Pop2 + Push1,
+			["and"] =      Pop2 + Push1,
 			["asl"] =      Pop1 + Push1,
 			["asr"] =      Pop1 + Push1,
+			["bit"] =      Pop1 + Push1,
+			["bits"] =     Pop1 + Push1,
 			["br"] =       Pop0 + Push0,
 			["brtrue"] =   Pop1 + Push0,
 			["brfalse"] =  Pop1 + Push0,
@@ -170,6 +180,7 @@ namespace CSASM{
 			["mul"] =      Pop2 + Push1,
 			["newarr"] =   Pop1 + Push1,
 			["not"] =      Pop1 + Push1,
+			["or"] =       Pop2 + Push1,
 			["pop"] =      Pop1 + Push0,
 			["popd"] =     Pop1 + Push0,
 			["print"] =    Pop1 + Push0,
@@ -185,8 +196,10 @@ namespace CSASM{
 			["stf.n"] =    Pop0 + Push0,
 			["stf.o"] =    Pop0 + Push0,
 			["sub"] =      Pop2 + Push1,
+			["substr"] =   Pop3 + Push1,
 			["throw"] =    Pop0 + Push0,
-			["type"] =     Pop1 + Push1
+			["type"] =     Pop1 + Push1,
+			["xor"] =      Pop1 + Push1
 		};
 
 		static Tokens(){

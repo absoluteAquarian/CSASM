@@ -1,0 +1,23 @@
+﻿.asm_name Extern
+.stack 50
+
+.include <stdmath>
+
+func main:
+	push "cos(pi/4) = "
+	push MATH_PI
+	push 4.0
+	div
+	extern Math.Cos
+	add
+	print.n
+
+	push "rand(10, 21) = "
+	push 10
+	push 21
+	extern Random.Next(i32,i32)
+	add
+	print.n
+	
+	ret
+end

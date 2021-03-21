@@ -26,5 +26,14 @@ func main:
 	mul
 	print.n
 
+	; Substrings
+	push "Substring example"
+	dup
+	print.n
+	push 0
+	push 5
+	substr
+	print.n
+
 	ret
 end

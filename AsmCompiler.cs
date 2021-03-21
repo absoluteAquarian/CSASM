@@ -15,7 +15,7 @@ using System.Text.RegularExpressions;
 
 namespace CSASM{
 	public static class AsmCompiler{
-		public const string version = "2.1.2.3";
+		public const string version = "2.2";
 
 		//.asm_name
 		public static string asmName = "csasm_prog";
@@ -603,6 +603,7 @@ namespace CSASM{
 
 		private static void CompileMethodsAndGlobals(ModuleDefUser mod, TypeDefUser mainClass, AsmFile source){
 			List<FieldDefUser> globals = new List<FieldDefUser>();
+			List<uint> globalArrayLengths = new List<uint>();
 
 			MethodDefUser csasm_main = null;
 
@@ -635,11 +636,13 @@ namespace CSASM{
 							throw new CompileException(token, "Variable declaration was invalid");
 
 						AsmToken name = line[1];
-						TypeSig sig = GetSigFromCSASMType(mod, line[3].token, token.originalLine);
+						TypeSig sig = GetSigFromCSASMType(mod, line[3].token, token.originalLine, out uint length);
 						//Ignore local variables in this step
 						if(token == Tokens.GlobalVar){
 							if(inMethodDef)
 								throw new CompileException(token, "Global variable cannot be declared in the scope of a function");
+
+							globalArrayLengths.Add(length);
 
 							var attrs = FieldAttributes.Public | FieldAttributes.Static;
 							var global = new FieldDefUser(name.token, new FieldSig(sig), attrs);
@@ -695,6 +698,27 @@ namespace CSASM{
 						break;
 					}
 				}
+			}
+
+			//Check each global
+			//If it's an array, make sure to initialize it properly in the main class's .cctor
+			if(globals.Any(fdu => fdu.FieldType.IsSZArray)){
+				CilBody body;
+				var cctor = new MethodDefUser(".cctor", MethodSig.CreateStatic(mod.CorLibTypes.Void),
+					MethodImplAttributes.IL | MethodImplAttributes.Managed,
+					MethodAttributes.Public | MethodAttributes.Static | MethodAttributes.SpecialName | MethodAttributes.RTSpecialName){
+					Body = body = new CilBody()
+				};
+				for(int i = 0; i < globals.Count; i++){
+					var gVar = globals[i];
+					if(gVar.FieldType.IsSZArray){
+						body.Instructions.Add(OpCodes.Ldc_I4.ToInstruction((int)globalArrayLengths[i]));
+						body.Instructions.Add(OpCodes.Newarr.ToInstruction(gVar.FieldType.ToTypeDefOrRef()));
+						body.Instructions.Add(OpCodes.Stsfld.ToInstruction(gVar));
+					}
+				}
+				body.Instructions.Add(OpCodes.Ret.ToInstruction());
+				mainClass.Methods.Add(cctor);
 			}
 			#endregion
 
@@ -752,7 +776,7 @@ namespace CSASM{
 							throw new CompileException(token, "Variable declaration was invalid");
 
 						AsmToken name = line[1];
-						TypeSig sig = GetSigFromCSASMType(mod, line[3].token, token.originalLine);
+						TypeSig sig = GetSigFromCSASMType(mod, line[3].token, token.originalLine, out _);
 						//Ignore global variables in this step
 						if(token == Tokens.LocalVar){
 							if(curMethod is null)
@@ -956,7 +980,7 @@ namespace CSASM{
 			}
 		}
 
-		private static TypeSig GetSigFromCSASMType(ModuleDefUser mod, string type, int line){
+		private static TypeSig GetSigFromCSASMType(ModuleDefUser mod, string type, int line, out uint arrayLength){
 			/*   IMPORTANT NOTES:
 			 *   
 			 *   Type sigs for array types won't register properly unless they're a SZArraySig
@@ -965,7 +989,7 @@ namespace CSASM{
 
 			Importer importer = new Importer(mod, ImporterOptions.TryToUseDefs);
 			//First check if the type is an inline array
-			if(CheckInlineArray(type, out Type elemType, out _))
+			if(CheckInlineArray(type, out Type elemType, out arrayLength))
 				return importer.ImportAsTypeSig(Array.CreateInstance(elemType, 0).GetType()).ToSZArraySig();
 
 			return type switch{
@@ -1147,6 +1171,15 @@ namespace CSASM{
 			}
 
 			void LdNonRegister(){
+				if(CheckIndexer(tokens[1].token, out int offset)){
+					body.Instructions.Add(OpCodes.Ldc_I4.ToInstruction(offset));
+					body.Instructions.Add(OpCodes.Conv_U4.ToInstruction());
+					body.Instructions.Add(OpCodes.Newobj.ToInstruction(indexer_ctor));
+					body.Instructions.Add(OpCodes.Box.ToInstruction(indexer));
+
+					return;
+				}
+
 				Type type = GetObjectTypeFromToken(tokens[1].token, out object value, body.Variables, globals);
 				if(type is null){
 					//If type is null, then the token is a global variable or a local variable index

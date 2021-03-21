@@ -217,7 +217,7 @@ namespace CSASM{
 
 			for(int c = 0; c < letters.Length; c++){
 				char letter = letters[c];
-				if(letter == '\\' && c < letters.Length - 1 && letters[c + 1] == '"'){
+				if(letter == '\\' && c < letters.Length - 1 && letters[c + 1] == '"' && c > 0 && letters[c - 1] != '\\'){
 					//Escaped quote.  Add both
 					sb.Append(letter);
 					sb.Append(letters[c + 1]);
