@@ -15,7 +15,7 @@ using System.Text.RegularExpressions;
 
 namespace CSASM{
 	public static class AsmCompiler{
-		public const string version = "2.2.1";
+		public const string version = "2.2.1.1";
 
 		//.asm_name
 		public static string asmName = "csasm_prog";
