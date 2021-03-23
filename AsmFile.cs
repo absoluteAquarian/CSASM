@@ -33,7 +33,13 @@ namespace CSASM{
 			//Open the file and parse it
 			using StreamReader reader = new StreamReader(File.OpenRead(file));
 
-			int index;
+			string RemoveComment(string s){
+				while(s.IndexOf("\"") > s.LastIndexOf(";") && s.LastIndexOf("\"") < s.LastIndexOf(";"))
+					s = s.Substring(s.LastIndexOf(";") - 1);
+
+				return s;
+			}
+
 			//Get the file's text
 			string[] lines = reader.ReadToEnd()
 				//Normalize the newlines
@@ -41,9 +47,7 @@ namespace CSASM{
 				//Separate the lines
 				.Split('\n')
 				//Remove any comments
-				.Select(s => (index = s.IndexOf(';')) >= 0
-					? s.Substring(0, index)
-					: s)
+				.Select(s => RemoveComment(s))
 				//Remove any extra leading/trailing whitespace
 				.Select(s => s.Trim())
 				.ToArray();
