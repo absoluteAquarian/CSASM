@@ -1311,7 +1311,7 @@ namespace CSASM{
 						body.Instructions.Add(OpCodes.Ldstr.ToInstruction((string)value));
 						body.Instructions.Add(OpCodes.Box.ToInstruction(mod.CorLibTypes.String));
 					}else if(type == typeof(char)){
-						body.Instructions.Add(OpCodes.Ldc_I4.ToInstruction((int)value));
+						body.Instructions.Add(OpCodes.Ldc_I4.ToInstruction((int)(char)value));
 						body.Instructions.Add(OpCodes.Box.ToInstruction(mod.CorLibTypes.Char));
 					}else if(type == typeof(Array)){
 						var tuple = ((uint, Type))value;
@@ -2020,8 +2020,11 @@ namespace CSASM{
 		}
 
 		private static char Unescape(string str){
-			if(str.Length != 2)
+			if(str.Contains("\\") && str.Length != 2)
 				throw new ArgumentException("Argument length was invalid", "str");
+
+			if(str.Length == 1)
+				return str[0];
 
 			return str[1] switch{
 				'0' => '\0',
