@@ -42,6 +42,7 @@ namespace CSASM{
 				|| type == "i8" || type == "i16" || type == "i32" || type == "i64"
 				|| type == "u8" || type == "u16" || type == "u32" || type == "u64"
 				|| type == "obj"
+				|| type == "^<u32>"
 				|| (type.StartsWith("~arr:") && IsCSASMType(type.Substring("~arr:".Length)));
 
 		public static Type GetCsharpType(string asmType)

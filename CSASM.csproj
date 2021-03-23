@@ -82,6 +82,7 @@
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
     <None Include="Headers\stdarr.csah" />
+    <None Include="Headers\stdio.csah" />
     <None Include="Headers\stdlib.csah" />
     <Content Include="syntax.txt">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>

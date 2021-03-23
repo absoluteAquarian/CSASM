@@ -1,0 +1,44 @@
+﻿.asm_name IOTest
+.stack 100
+
+.include <stdio>
+
+func main:
+	; Set up one of the I/O registers
+	;   Type:     Write-only
+	;   Mode:     Create New or Truncate
+	;   Format:   Stream
+	;   Newlines: Yes
+	push FILE_WRITE
+	pop $io.f0
+	push FILE_CREATE
+	pop $io.m0
+	push FILE_STREAM
+	pop $io.s0
+	push STREAM_WRITELINE
+	pop $io.n0
+
+	; Initialize it by setting its file path to a non-null value
+	push ".\\iotest - file.txt"
+	pop $io.p0
+
+	; Write stuff to the file
+	io.w0 "Hello, World!"
+	io.w0 "This is a line."
+
+	; Set it to No Newlines midway
+	push STREAM_WRITE
+	pop $io.n0
+	io.w0 "Multiple "
+	io.w0 "writes "
+	io.w0 "in one line! "
+	push 33
+	pop $a
+	io.w0 $a
+
+	; Close the register
+	push FILE_CLOSE
+	pop $io.p0
+
+	ret
+end

@@ -15,7 +15,7 @@ using System.Text.RegularExpressions;
 
 namespace CSASM{
 	public static class AsmCompiler{
-		public const string version = "2.2.1.2";
+		public const string version = "2.2.1.3";
 
 		//.asm_name
 		public static string asmName = "csasm_prog";
@@ -1033,7 +1033,48 @@ namespace CSASM{
 			"$con.fcol",
 			"$con.ttl",
 			"$con.wh",
-			"$con.ww"
+			"$con.ww",
+
+			"$io.f0",
+			"$io.f1",
+			"$io.f2",
+			"$io.f3",
+			"$io.f4",
+			"$io.f5",
+			"$io.f6",
+			"$io.f7",
+			"$io.m0",
+			"$io.m1",
+			"$io.m2",
+			"$io.m3",
+			"$io.m4",
+			"$io.m5",
+			"$io.m6",
+			"$io.m7",
+			"$io.n0",
+			"$io.n1",
+			"$io.n2",
+			"$io.n3",
+			"$io.n4",
+			"$io.n5",
+			"$io.n6",
+			"$io.n7",
+			"$io.p0",
+			"$io.p1",
+			"$io.p2",
+			"$io.p3",
+			"$io.p4",
+			"$io.p5",
+			"$io.p6",
+			"$io.p7",
+			"$io.s0",
+			"$io.s1",
+			"$io.s2",
+			"$io.s3",
+			"$io.s4",
+			"$io.s5",
+			"$io.s6",
+			"$io.s7"
 		};
 
 		private static Dictionary<string, (IMethod, Type)> instructionMethods = new Dictionary<string, (IMethod, Type)>();
@@ -1087,7 +1128,6 @@ namespace CSASM{
 			if(argToken != null && ((argToken.StartsWith("\"") && argToken.EndsWith("\"")) || (argToken.StartsWith("'") && argToken.EndsWith("'"))))
 				argToken = argToken.Substring(1).Substring(0, argToken.Length - 2);
 
-			// TODO: am I going nuts or am I copying code unnecessarily.  Figure this out later
 			IMethod method;
 			AsmToken instr = Tokens.Instruction, instrNoOp = Tokens.InstructionNoParameter, arg = Tokens.InstructionOperand;
 			Importer importer = new Importer(mod);
@@ -1101,8 +1141,78 @@ namespace CSASM{
 				body.Instructions.Add(OpCodes.Unbox_Any.ToInstruction(mod.CorLibTypes.Int32.ToTypeDefOrRef()));
 			}
 
+			#region I/O
+			void LdIORegister(){
+				if(!registers.Contains(argToken))
+					throw new CompileException(token: token, "Unknown I/O register");
+
+				if(!byte.TryParse(argToken.Substring(5), out byte id))
+					throw new CompileException(token: token, $"Invalid I/O register token {argToken}");
+
+				body.Instructions.Add(OpCodes.Ldc_I4.ToInstruction((int)id));
+				body.Instructions.Add(OpCodes.Conv_U1.ToInstruction());
+
+				method = GetExternalMethod(mod, typeof(Core.Utility),
+					"GetIOHandle" + (argToken.StartsWith($"io.f")
+						? "Type"
+						: (argToken.StartsWith("$io.m")
+							? "Mode"
+							: (argToken.StartsWith("$io.n")
+								? "Newline"
+								: (argToken.StartsWith("$io.p")
+									? "File"
+									: "Stream")))),
+					new Type[]{ typeof(byte) });
+
+				body.Instructions.Add(OpCodes.Call.ToInstruction(method));
+				if(argToken.StartsWith("$io.f") || argToken.StartsWith("$io.n") || argToken.StartsWith("$io.s")){
+					body.Instructions.Add(OpCodes.Newobj.ToInstruction(prim_int_ctor));
+					body.Instructions.Add(OpCodes.Box.ToInstruction(prim_int));
+				}else
+					body.Instructions.Add(OpCodes.Box.ToInstruction(mod.CorLibTypes.String));
+			}
+
+			void StIORegister(){
+				if(!registers.Where(s => s.StartsWith("$io.")).Contains(argToken))
+					throw new CompileException(token: token, "Unknown I/O register");
+
+				if(!byte.TryParse(argToken.Substring(5), out byte id))
+					throw new CompileException(token: token, $"Invalid I/O register token ({argToken})");
+
+				if(argToken.StartsWith("$io.f") || argToken.StartsWith("$io.n") || argToken.StartsWith("$io.s")){
+					ConvIntPrimToInt32();
+
+					method = GetExternalMethod(mod, typeof(Core.Utility),
+						"SetIOHandle" + (argToken.StartsWith("$io.f")
+							? "Type"
+							: (argToken.StartsWith("$io.n")
+								? "Newline"
+								: "Stream")),
+						new Type[]{ typeof(bool), typeof(byte) });
+				}else if(argToken.StartsWith("$io.m")){
+					ConvIntPrimToInt32();
+
+					method = GetExternalMethod(mod, typeof(Core.Utility), "SetIOHandleMode", new Type[]{ typeof(FileMode), typeof(byte) });
+				}else{
+					body.Instructions.Add(OpCodes.Unbox_Any.ToInstruction(mod.CorLibTypes.String));
+
+					method = GetExternalMethod(mod, typeof(Core.Utility), "SetIOHandleFile", new Type[]{ typeof(string), typeof(byte) });
+				}
+
+				body.Instructions.Add(OpCodes.Ldc_I4.ToInstruction((int)id));
+				body.Instructions.Add(OpCodes.Conv_U1.ToInstruction());
+
+				body.Instructions.Add(OpCodes.Call.ToInstruction(method));
+			}
+			#endregion
+
 			#region Loading
 			void LdRegister(){
+				if(argToken.StartsWith("$io")){
+					LdIORegister();
+					return;
+				}
+
 				body.Instructions.Add(argToken switch{
 					"$a" => OpCodes.Ldsfld.ToInstruction(ops_reg_a),
 					"$1" => OpCodes.Ldsfld.ToInstruction(ops_reg_1),
@@ -1149,6 +1259,11 @@ namespace CSASM{
 						_ => throw new CompileException(token: token, "Invalid register name")
 					}));
 				}else{
+					if(argToken.StartsWith("$io.")){
+						LdIORegister();
+						return;
+					}
+
 					body.Instructions.Add(OpCodes.Call.ToInstruction(argToken switch{
 						"$con.bcol" => console_get_BackgroundColor,
 						"$con.bh" => console_get_BufferHeight,
@@ -1252,6 +1367,11 @@ namespace CSASM{
 			#region Storing
 			void StRegisterNoFlags(){
 				if(!argToken.StartsWith("$con.")){
+					if(argToken.StartsWith("$io.")){
+						StIORegister();
+						return;
+					}
+
 					body.Instructions.Add(argToken switch{
 						"$a" => OpCodes.Stsfld.ToInstruction(ops_reg_a),
 						"$1" => OpCodes.Stsfld.ToInstruction(ops_reg_1),
@@ -1311,6 +1431,34 @@ namespace CSASM{
 
 			Local local;
 			FieldDefUser global;
+			if(token.token.StartsWith("io.")){
+				if(!byte.TryParse(token.token.Substring(4), out byte id))
+					throw new CompileException(token: token, $"Invalid I/O instruction token ({argToken})");
+
+				body.Instructions.Add(OpCodes.Ldc_I4.ToInstruction((int)id));
+				body.Instructions.Add(OpCodes.Conv_U1.ToInstruction());
+
+				if(token.token.StartsWith("io.r")){
+					if(!Utility.IsCSASMType(argToken))
+						throw new CompileException(token: token, "Instruction argument was not a valid CSASM type indicator");
+
+					body.Instructions.Add(OpCodes.Ldstr.ToInstruction(argToken));
+
+					method = GetExternalMethod(mod, typeof(Core.Utility), "IOHandleRead", new Type[]{ typeof(byte), typeof(string) });
+				}else{
+					if(registerArg)
+						LdRegister();
+					else
+						LdNonRegister();
+
+					method = GetExternalMethod(mod, typeof(Core.Utility), "IOHandleWrite", new Type[]{ typeof(byte), typeof(object) });
+				}
+
+				body.Instructions.Add(OpCodes.Call.ToInstruction(method));
+
+				return;
+			}
+
 			switch(token.token){
 				case "call":
 					if(registerArg)
@@ -1862,6 +2010,7 @@ namespace CSASM{
 				"f32" => typeof(FloatPrimitive),
 				"f64" => typeof(DoublePrimitive),
 				"obj" => typeof(object),
+				"^<u32>" => typeof(Core.Indexer),
 				_ => throw new CompileException($"Unknown array type in token: {fullToken}")
 			};
 

@@ -51,9 +51,10 @@ func <name>: ............ Begins a method declaration whose name is <name>
 DEFINED TYPES
 =============
 
+~arr .................... The array type indicator passed to the "io.r<u32>" instruction
 ~arr:<type>,<i32> ....... A new <type> array instance with <i32> elements
 
-^<i32> .................. An indexing type
+^<u32> .................. An indexing type
 
 char .................... Character literal type
 
@@ -116,9 +117,12 @@ extern <func> ........... Calls an external function from the C# standard librar
 
 in <str> ................ Prints <str>, then waits for a newline-terminated string of text.  The input is pushed to the stack
 inc <var> ............... Increments an integer stored in <var> by one
+index ................... Pops A and B.  If A is a <str> or array instance, the first index of B will be pushed to the stack OR -1 if B is not in A
 ink <str> ............... Prints <str>, then waits for the user to press a key.  The <char> key input is pushed to the stack
 inki <str> .............. Prints <str>, then waits for the user to press a key (the key will not appear in the command prompt).  The <char> key is pushed to the stack
 interp <str> ............ Pops A (an <obj> array), then uses its values to modify <str>
+io.r<u8> <type> ......... Reads a <type> value from the I/O instance indicated by <u8>
+io.w<u8> <val> .......... Writes <val> to the I/O instance indicated by <u8>
 is <type> ............... Pops A, then sets the Comparison flag iff A has the same type as <type>
 is.a <type> ............. Sets the Comparison flag iff the value contained in the accumulator has the same type as <type>
 isarr <type> ............ Pops A, then sets the Comparison flag iff A is an array and its element type is <type>.  For checking if A is just an array, pass in obj as the <type>
@@ -137,6 +141,7 @@ or ...................... Pops A and B, then pushes A | B
 
 pop <var> ............... Pops A, then stores it in <var>
 popd .................... Pops A
+pow ..................... Pops A and B, then pushes A to the power of B as an <f64>
 print ................... Pops A, then prints its string representation to the console
 print.n ................. Pops A, then prints its string representation to the console with a newline appended
 push <arg> .............. Pushes <arg> to the stack
@@ -144,6 +149,7 @@ push <arg> .............. Pushes <arg> to the stack
 rem ..................... Pops A and B, then pushes B % A
 ret ..................... Returns from a method
 rol ..................... Pops A (an integer), pushes (A << 1) | Carry, then sets or clears the Carry flag based on the Most Significant Bit of A
+root .................... Pops A and B, then pushes the B-th root of A as an <f64>
 ror ..................... Pops A (an integer), pushes (A >> 1) | (Carry << (sizeof(A) * 8 - 1)), then sets or clears the Carry flag based on the Least Significant Bit of A
 
 sta <var> ............... Stores the value in the accumulator in <var>
@@ -185,3 +191,9 @@ $con.ww ................. The console's window width
 $f.c .................... The Carry flag
 $f.n .................... The Conversion flag
 $f.o .................... The Comparison flag
+
+$io.f<u8> ............... Whether the I/O instance indicated by the <u8> constant should read (0) or write (1)
+$io.m<u8> ............... The FileMode for the I/O instance indicated by the <u8> constant.  Can only be written to if the instance isn't active
+$io.n<u8> ............... If the I/O instance indicated by the <u8> constant is in Stream mode, this gets/sets whether writing will use Write (0) or WriteLine (1)
+$io.p<u8> ............... The path to the file that the I/O instance indicated by the <u8> constant will use.  Write null to close the instance
+$io.s<u8> ............... Whether the I/O instance indicated by the <u8> constant is in Binary (0) or Stream (1) mode
