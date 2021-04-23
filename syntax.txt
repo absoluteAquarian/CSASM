@@ -86,6 +86,8 @@ and ..................... Pops A and B, then pushes A & B
 asl ..................... Pops A (an integer), then pushes A << 1
 asr ..................... Pops A (an integer), then pushes A >> 1
 
+bin ..................... Pops A (an integer), then pushes a <str> representing the binary representation of A
+binz .................... Pops A (an integer), then pushes a <str> representing the binary representation of A with leading zeroes
 bit <u8> ................ Pops A (an integer), then pushes the bit at position A.  If A doesn't refer to a valid bit, 0 is pushed instead
 bits .................... Pops A (an <f32> or <f64>), then pushes an <i32> or <i64> set to the bit representation of A
 br <label> .............. Unconditionally jumps execution to <label>
@@ -159,6 +161,7 @@ stf.n ................... Sets the Conversion flag
 stf.o ................... Sets the Comparison flag
 sub ..................... Pops A and B, then pushes B - A.  If B is a <str> and A is a <str> or <char>, all instances of A will be removed from B and the result will be pushed to the stack.
 substr .................. Pops A (a <str>), B (an <i32> or indexer) and C (an <i32> or indexer), then pushes the substring of A from position B to position C
+swap .................... Swaps A and B on the stack
 
 throw <str> ............. Throws a "ThrowException" with whose message is <str>
 type .................... Pops A, then pushes a <str> representing its type

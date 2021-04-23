@@ -15,7 +15,7 @@ using System.Text.RegularExpressions;
 
 namespace CSASM{
 	public static class AsmCompiler{
-		public const string version = "2.3.0.1";
+		public const string version = "2.3.1";
 
 		//.asm_name
 		public static string asmName = "csasm_prog";
@@ -599,7 +599,7 @@ namespace CSASM{
 			ReportIL(mod);
 		}
 
-		static Dictionary<string, List<Instruction>> callInstrsWaitingForMethodDef = new Dictionary<string, List<Instruction>>();
+		static readonly Dictionary<string, List<Instruction>> callInstrsWaitingForMethodDef = new Dictionary<string, List<Instruction>>();
 
 		private static void CompileMethodsAndGlobals(ModuleDefUser mod, TypeDefUser mainClass, AsmFile source){
 			List<FieldDefUser> globals = new List<FieldDefUser>();
@@ -1077,7 +1077,7 @@ namespace CSASM{
 			"$io.s7"
 		};
 
-		private static Dictionary<string, (IMethod, Type)> instructionMethods = new Dictionary<string, (IMethod, Type)>();
+		private static readonly Dictionary<string, (IMethod, Type)> instructionMethods = new Dictionary<string, (IMethod, Type)>();
 
 		private static IMethod GetOpsMethod(ModuleDefUser mod, string name, Type[] argTypes = null){
 			IMethod method;
@@ -2019,7 +2019,7 @@ namespace CSASM{
 			return uint.TryParse(substr, out length);
 		}
 
-		private static char Unescape(string str){
+		internal static char Unescape(string str){
 			if(str.Contains("\\") && str.Length != 2)
 				throw new ArgumentException("Argument length was invalid", "str");
 

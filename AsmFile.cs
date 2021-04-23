@@ -33,10 +33,19 @@ namespace CSASM{
 			//Open the file and parse it
 			using StreamReader reader = new StreamReader(File.OpenRead(file));
 
-			string RemoveComment(string s){
-				while(s.IndexOf("\"") > s.LastIndexOf(";") && s.LastIndexOf("\"") < s.LastIndexOf(";"))
-					s = s.Substring(s.LastIndexOf(";") - 1);
+			static string RemoveComment(string s){
+				char[] letters = s.ToCharArray();
+				bool inQuote = false;
+				for(int c = 0; c < letters.Length; c++){
+					char letter = letters[c];
+					if(letter == ';' && !inQuote){
+						//Comment char appeared before the string character.  Remove all letters after this one and this one
+						return c == 0 ? string.Empty : s.Substring(0, c - 1);
+					}else if(letter == '"')
+						inQuote = !inQuote;
+				}
 
+				//No comments that weren't enclosed in quote chars were found.  Return the original string
 				return s;
 			}
 
@@ -157,21 +166,21 @@ namespace CSASM{
 
 			if(allIncludes.Count > 0){
 				for(int i = 0; i < allIncludes.Count; i++){
-					var tuple = allIncludes[i];
-					string targetFile = tuple.list[1].token;
+					var (list, index) = allIncludes[i];
+					string targetFile = list[1].token;
 
 					if(AsmCompiler.reportTranspiledCode)
 						Console.WriteLine($"Found dependency \"{Path.GetFileName(targetFile)}\" in source file \"{Path.GetFileName(currentCompilingFile)}\"");
 
 					if(!File.Exists(targetFile)){
 						if(AsmCompiler.reportTranspiledCode)
-							throw new CompileException(line: tuple.index, $"Target file \"{targetFile}\" does not exist.");
+							throw new CompileException(line: index, $"Target file \"{targetFile}\" does not exist.");
 						else
-							throw new CompileException(line: tuple.index, $"Target file \"{Path.GetFileName(targetFile)}\" does not exist.");
+							throw new CompileException(line: index, $"Target file \"{Path.GetFileName(targetFile)}\" does not exist.");
 					}
 
 					//Remove the existing token line since the ".include" won't be needed anymore
-					ret.tokens.RemoveAt(tuple.index);
+					ret.tokens.RemoveAt(index);
 
 					//Shift the tokens back one
 					for(int ii = i + 1; ii < allIncludes.Count; ii++)
@@ -184,7 +193,7 @@ namespace CSASM{
 					currentCompilingFile = old;
 
 					for(int t = 0; t < target.tokens.Count; t++)
-						ret.tokens.Insert(tuple.index + t, target.tokens[t]);
+						ret.tokens.Insert(index + t, target.tokens[t]);
 
 					//Update the indexes of the remaining includes
 					for(int ii = i + 1; ii < allIncludes.Count; ii++)
@@ -285,8 +294,8 @@ namespace CSASM{
 						continue;
 
 					bool PreviousTokenMatches(AsmTokenType type){
-						if(w == 0){
-							//First token in this line
+						if(w == 0 || words.Length < 2){
+							//First token in this line or the line doesn't have enough tokens
 							return false;
 						}
 						//Not the first token in this line
@@ -402,7 +411,7 @@ skipIncludeRest:
 					}else if(token.token == null)
 						token.token = word;
 
-					//Verify that method, variable and label names are valid
+					//Verify that method, variable, label and define names are valid
 					switch(token.type){
 						case AsmTokenType.MethodName:
 						case AsmTokenType.VariableName:
@@ -416,6 +425,10 @@ skipIncludeRest:
 								throw new CompileException(line: i, $"{name} name was invalid");
 							}
 							break;
+						case AsmTokenType.PreprocessorDefine:
+							if(!CodeGenerator.IsValidLanguageIndependentIdentifier(words[1]))
+								throw new CompileException(line: i, "Define name was invalid");
+							break;
 					}
 
 					token.originalLine = i;
@@ -425,7 +438,7 @@ skipIncludeRest:
 				}
 			}
 
-			//Get rid of the macros so the preprocessor conditionals work properly
+			//Get rid of the macros so the preprocessor conditionals work properly for .include
 			RegisteredDefines.Clear();
 
 			return tokens;
