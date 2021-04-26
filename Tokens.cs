@@ -88,6 +88,7 @@ namespace CSASM{
 			"index",
 			"len",
 			"mul",
+			"neg",
 			"newindex",
 			"newrange",
 			"newset",
