@@ -1,0 +1,57 @@
+﻿.asm_name TypeTest
+.stack 500
+
+.global arr : ~arr:i32,6
+
+func main:
+	; This file showcases the indexer, set and range types
+	.local _set : ~set
+	.local _range : ~range
+
+	push "Hello, World!"
+	push 0
+	push ^4
+	substr
+	print.n
+
+	push "Indexer: "
+	push 3
+	conv u32
+	newindex
+	add
+	print.n
+
+	push -5
+	push 12
+	newrange
+	pop _range
+
+	push "Range: "
+	push _range
+	add
+	print.n
+
+	push [4..7]
+	pop _range
+	
+	push "Range: "
+	push _range
+	add
+	print.n
+
+	push {0,0,1,3,4,8,6,10,12}
+	pop _set
+
+	push "Set: "
+	push _set
+	add
+	print.n
+
+	push "Set: "
+	push _range   ; [4..7]
+	newset
+	add
+	print.n
+
+	ret
+end

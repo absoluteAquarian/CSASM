@@ -53,6 +53,8 @@ DEFINED TYPES
 
 ~arr .................... The array type indicator passed to the "io.r<u32>" instruction
 ~arr:<type>,<i32> ....... A new <type> array instance with <i32> elements
+~range .................. A range of integers
+~set .................... An arithmetic set of values
 
 ^<u32> .................. An indexing type
 
@@ -81,18 +83,19 @@ DEFINED INSTRUCTIONS
 When popping elements from the stack, "A" will refer to the topmost element, "B" will refer to the element after that and "C" will refer to the element after that
 
 abs ..................... Pops A, then pushes its absolute value
-add ..................... Pops A and B, then pushes A + B.  If either A or B is a <str>, string concatenation is performed instead, then the result is pushed to the stack.
-and ..................... Pops A and B, then pushes A & B
+add ..................... Pops A and B, then pushes B + A.  If either A or B is a <str>, string concatenation is performed instead, then the result is pushed to the stack.  If A and B are <~set>
+                          instances, then the union of the two sets is pushed to the stack.
+and ..................... Pops A and B, then pushes B & A
 asl ..................... Pops A (an integer), then pushes A << 1
 asr ..................... Pops A (an integer), then pushes A >> 1
 
-bin ..................... Pops A (an integer), then pushes a <str> representing the binary representation of A
-binz .................... Pops A (an integer), then pushes a <str> representing the binary representation of A with leading zeroes
+bin ..................... Pops A (an integer), then pushes a <str> of the binary representation of A
+binz .................... Pops A (an integer), then pushes a <str> of the binary representation of A with leading zeroes
 bit <u8> ................ Pops A (an integer), then pushes the bit at position A.  If A doesn't refer to a valid bit, 0 is pushed instead
 bits .................... Pops A (an <f32> or <f64>), then pushes an <i32> or <i64> set to the bit representation of A
 br <label> .............. Unconditionally jumps execution to <label>
-brfalse <label> ......... Jumps execution to <label> iff the accumulator contains a null, zero or an empty string
-brtrue <label> .......... Jumps execution to <label> iff the accumulator contains a non-zero value or a non-empty string
+brfalse <label> ......... Jumps execution to <label> iff the accumulator contains a null or zero
+brtrue <label> .......... Jumps execution to <label> iff the accumulator contains a non-zero integer, or a non-null object
 bytes ................... Pops A, then pushes how many bytes of memory A uses.
 
 call <func> ............. Calls a function.  The function's arguments must be pushed to the stack before this instruction
@@ -111,7 +114,9 @@ conv <type> ............. Pops A, converts it to <type>, then pushes the result.
 conv.a <type> ........... Converts the value in the accumulator to the given type
 
 dec <var> ............... Decrements an integer stored in <var> by one
-div ..................... Pops A and B, then pushes B / A.  If B is a <str> and A is a <str> or <char>, the result of "B.Split(A)" (an <~arr:str>) is pushed to the stack instead.
+disj .................... Pops A and B (<~set> instances), then sets the Comparison flag iff A and B are disjoint
+div ..................... Pops A and B, then pushes B / A.  If B is a <str> and A is a <str> or <char>, the result of "B.Split(A)" (an <~arr:str>) is pushed to the stack instead.  If A and B are
+                          <~set> instances, then the intersection of the two sets is pushed to the stack.
 dup ..................... Pops A, then pushes A twice
 
 exit .................... Stops the program
@@ -133,17 +138,20 @@ lda <var> ............... Stores <var> into the accumulator
 ldelem <index> .......... Pops A (an array instance), then pushes the value contained in A at the zero-based index <index>
 len ..................... Pops A (an array instance or a <str>), then pushes the length of A
 
-mul ..................... Pops A and B, then pushes A * B.  If B is a <str> and A is a positive integer, B will be repeated A times in one <str> and that <str> is pushed to the stack instead.
+mul ..................... Pops A and B, then pushes B * A.  If B is a <str> and A is a positive integer, B will be repeated A times in one <str> and that <str> is pushed to the stack instead.
 
 neg ..................... Pops A, then pushes -A
 newarr <type> ........... Pops A (an <i32>), then pushes a new <type> array instance whose length is A
+newindex ................ Pops A (a <u32>), then pushes a new ^<u32> (indexer) instance whose offset is set to A
+newrange ................ Pops A (an <i32> or indexer) and B (an <i32> or indexer), then pushes a new range instance.  If B is an indexer instance, A must be one as well.
+newset .................. Pops A (an array of integers), then pushes a new <~set> instance initialized to the contents of A
 not ..................... Pops A (an integer), then pushes ~A
 
-or ...................... Pops A and B, then pushes A | B
+or ...................... Pops A and B, then pushes B | A
 
 pop <var> ............... Pops A, then stores it in <var>
 popd .................... Pops A
-pow ..................... Pops A and B, then pushes A to the power of B as an <f64>
+pow ..................... Pops A and B, then pushes B to the power of A as an <f64>
 print ................... Pops A, then prints its string representation to the console
 print.n ................. Pops A, then prints its string representation to the console with a newline appended
 push <arg> .............. Pushes <arg> to the stack
@@ -151,22 +159,24 @@ push <arg> .............. Pushes <arg> to the stack
 rem ..................... Pops A and B, then pushes B % A
 ret ..................... Returns from a method
 rol ..................... Pops A (an integer), pushes (A << 1) | Carry, then sets or clears the Carry flag based on the Most Significant Bit of A
-root .................... Pops A and B, then pushes the B-th root of A as an <f64>
+root .................... Pops A and B, then pushes the A-th root of B as an <f64>
 ror ..................... Pops A (an integer), pushes (A >> 1) | (Carry << (sizeof(A) * 8 - 1)), then sets or clears the Carry flag based on the Least Significant Bit of A
 
 sta <var> ............... Stores the value in the accumulator in <var>
-stelem <index> .......... Pops A (an array instance) and B (the value to store), then stores B in A at the zero-based index <index>
+stelem <index> .......... Pops A (the value to store) and B (an array instance), then stores A in B at the zero-based index <index>
 stf.c ................... Sets the Carry flag
 stf.n ................... Sets the Conversion flag
 stf.o ................... Sets the Comparison flag
-sub ..................... Pops A and B, then pushes B - A.  If B is a <str> and A is a <str> or <char>, all instances of A will be removed from B and the result will be pushed to the stack.
-substr .................. Pops A (a <str>), B (an <i32> or indexer) and C (an <i32> or indexer), then pushes the substring of A from position B to position C
+sub ..................... Pops A and B, then pushes B - A.  If B is a <str> and A is a <str> or <char>, all instances of A will be removed from B and the result will be pushed to the stack.  If A and
+                          B are <~set> instances, then the difference of the two sets is pushed to the stack.
+substr .................. Pops A (an <i32> or indexer), B (an <i32> or indexer) and C (a <str>), then pushes the substring of C from position B to position A.  However, if A is a range instance,
+                          then only A and B are popped and B will be the <str> instance.  The start and end positions of A will be what part of B will be pushed to the stack.
 swap .................... Swaps A and B on the stack
 
 throw <str> ............. Throws a "ThrowException" with whose message is <str>
 type .................... Pops A, then pushes a <str> representing its type
 
-xor ..................... Pops A and B, then pushes A ^ B
+xor ..................... Pops A and B, then pushes B ^ A
 
 
 DEFINED REGISTERS
@@ -200,3 +210,7 @@ $io.m<u8> ............... The FileMode for the I/O instance indicated by the <u8
 $io.n<u8> ............... If the I/O instance indicated by the <u8> constant is in Stream mode, this gets/sets whether writing will use Write (0) or WriteLine (1)
 $io.p<u8> ............... The path to the file that the I/O instance indicated by the <u8> constant will use.  Write null to close the instance
 $io.s<u8> ............... Whether the I/O instance indicated by the <u8> constant is in Binary (0) or Stream (1) mode
+
+$args ................... The arguments passed to the program, excluding the debug flags
+
+$as.e ................... The empty arithmetic set

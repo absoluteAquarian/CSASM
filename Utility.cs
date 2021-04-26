@@ -32,6 +32,12 @@ namespace CSASM{
 				return "u64";
 			if(type == typeof(byte) || type == typeof(BytePrimitive))
 				return "u8";
+			if(type == typeof(Indexer))
+				return "^<u32>";
+			if(type == typeof(ArithmeticSet))
+				return "~set";
+			if(type == typeof(Range))
+				return "~range";
 
 			return "object";
 		}
@@ -43,7 +49,9 @@ namespace CSASM{
 				|| type == "u8" || type == "u16" || type == "u32" || type == "u64"
 				|| type == "obj"
 				|| type == "^<u32>"
-				|| (type.StartsWith("~arr:") && IsCSASMType(type.Substring("~arr:".Length)));
+				|| (type.StartsWith("~arr:") && IsCSASMType(type.Substring("~arr:".Length)))
+				|| type == "~set"
+				|| type == "~range";
 
 		public static Type GetCsharpType(string asmType)
 			=> asmType switch{
@@ -60,6 +68,9 @@ namespace CSASM{
 				"f32" => typeof(FloatPrimitive),
 				"f64" => typeof(DoublePrimitive),
 				"obj" => typeof(object),
+				"^<u32>" => typeof(Indexer),
+				"~set" => typeof(ArithmeticSet),
+				"~range" => typeof(Range),
 				null => throw new ArgumentNullException("asmType"),
 				_ when asmType.StartsWith("~arr:") => Array.CreateInstance(GetCsharpType(asmType.Substring("~arr:".Length)), 0).GetType(),
 				_ => throw new CompileException($"Type \"{asmType}\" did not correlate to a valid CSASM type")
@@ -77,9 +88,9 @@ namespace CSASM{
 
 			try{
 				Directory.Delete(path, true);
-			}catch (IOException){
+			}catch(IOException){
 				Directory.Delete(path, true);
-			}catch (UnauthorizedAccessException){
+			}catch(UnauthorizedAccessException){
 				Directory.Delete(path, true);
 			}
 		}

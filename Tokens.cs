@@ -67,6 +67,8 @@ namespace CSASM{
 			"and",
 			"asl",
 			"asr",
+			"bin",
+			"binz",
 			"bits",
 			"bytes",
 			"clf.c",
@@ -79,12 +81,16 @@ namespace CSASM{
 			"comp.lt",
 			"comp.lte",
 			"conrc",
+			"disj",
 			"div",
 			"dup",
 			"exit",
 			"index",
 			"len",
 			"mul",
+			"newindex",
+			"newrange",
+			"newset",
 			"not",
 			"or",
 			"popd",
@@ -99,6 +105,7 @@ namespace CSASM{
 			"stf.o",
 			"sub",
 			"substr",
+			"swap",
 			"type",
 			"xor"
 		};
@@ -146,107 +153,6 @@ namespace CSASM{
 			"stelem",
 			"throw"
 		};
-
-		private const int Push0 = 0;
-		private const int Push1 = 1;
-		private const int Pop0 = 0;
-		private const int Pop1 = -1;
-		private const int Pop2 = -2;
-		private const int Pop3 = -3;
-
-		public static readonly IDictionary<string, int> stackUsage = new Dictionary<string, int>(){
-			["abs"] =      Pop1 + Push1,
-			["add"] =      Pop2 + Push1,
-			["and"] =      Pop2 + Push1,
-			["asl"] =      Pop1 + Push1,
-			["asr"] =      Pop1 + Push1,
-			["bit"] =      Pop1 + Push1,
-			["bits"] =     Pop1 + Push1,
-			["br"] =       Pop0 + Push0,
-			["brtrue"] =   Pop1 + Push0,
-			["brfalse"] =  Pop1 + Push0,
-			["bytes"] =    Pop1 + Push1,
-			["call"] =     Pop0 + Push0,
-			["clf.c"] =    Pop0 + Push0,
-			["clf.n"] =    Pop0 + Push0,
-			["clf.o"] =    Pop0 + Push0,
-			["cls"] =      Pop0 + Push0,
-			["comp"] =     Pop2 + Push0,
-			["comp.gt"] =  Pop2 + Push0,
-			["comp.gte"] = Pop2 + Push0,
-			["comp.lt"] =  Pop2 + Push0,
-			["comp.lte"] = Pop2 + Push0,
-			["conrc"] =    Pop0 + Push0,
-			["conv"] =     Pop1 + Push1,
-			["conv.a"] =   Pop0 + Push0,
-			["dec"] =      Pop0 + Push0,
-			["div"] =      Pop2 + Push1,
-			["dup"] =      Pop0 + Push1,
-			["exit"] =     Pop0 + Push0,
-			["in"] =       Pop0 + Push1,
-			["inc"] =      Pop0 + Push0,
-			["index"] =    Pop2 + Push1,
-			["ink"] =      Pop0 + Push1,
-			["inki"] =     Pop0 + Push1,
-			["interp"] =   Pop1 + Push1,
-			["io.r0"] =    Pop0 + Push1,
-			["io.r1"] =    Pop0 + Push1,
-			["io.r2"] =    Pop0 + Push1,
-			["io.r3"] =    Pop0 + Push1,
-			["io.r4"] =    Pop0 + Push1,
-			["io.r5"] =    Pop0 + Push1,
-			["io.r6"] =    Pop0 + Push1,
-			["io.r7"] =    Pop0 + Push1,
-			["io.w0"] =    Pop1 + Push0,
-			["io.w1"] =    Pop1 + Push0,
-			["io.w2"] =    Pop1 + Push0,
-			["io.w3"] =    Pop1 + Push0,
-			["io.w4"] =    Pop1 + Push0,
-			["io.w5"] =    Pop1 + Push0,
-			["io.w6"] =    Pop1 + Push0,
-			["io.w7"] =    Pop1 + Push0,
-			["is"] =       Pop1 + Push0,
-			["is.a"] =     Pop0 + Push0,
-			["isarr"] =    Pop1 + Push0,
-			["lda"] =      Pop0 + Push0,
-			["ldelem"] =   Pop1 + Push0,
-			["len"] =      Pop1 + Push1,
-			["mul"] =      Pop2 + Push1,
-			["newarr"] =   Pop1 + Push1,
-			["not"] =      Pop1 + Push1,
-			["or"] =       Pop2 + Push1,
-			["pop"] =      Pop1 + Push0,
-			["popd"] =     Pop1 + Push0,
-			["print"] =    Pop1 + Push0,
-			["print.n"] =  Pop1 + Push0,
-			["push"] =     Pop0 + Push1,
-			["ret"] =      Pop0 + Push0,
-			["rem"] =      Pop2 + Push1,
-			["rol"] =      Pop1 + Push1,
-			["ror"] =      Pop1 + Push1,
-			["sta"] =      Pop0 + Push0,
-			["stelem"] =   Pop2 + Push0,
-			["stf.c"] =    Pop0 + Push0,
-			["stf.n"] =    Pop0 + Push0,
-			["stf.o"] =    Pop0 + Push0,
-			["sub"] =      Pop2 + Push1,
-			["substr"] =   Pop3 + Push1,
-			["throw"] =    Pop0 + Push0,
-			["type"] =     Pop1 + Push1,
-			["xor"] =      Pop1 + Push1
-		};
-
-		static Tokens(){
-			//Verify that every token has been accounted for
-			foreach(string str in instructionWords)
-				if(!stackUsage.ContainsKey(str))
-					throw new InstructionException($"Instruction \"{str}\" does not have a stack usage defined");
-
-			//"extern" is a special case.  That instruction will have to have its stack usage determined on the fly
-			foreach(string str in instructionWordsWithParameters)
-				if(!stackUsage.ContainsKey(str) && str != "extern")
-					throw new InstructionException($"Instruction \"{str}\" does not have a stack usage defined");
-		}
 
 		public static bool HasOperand(AsmToken token)
 			=> token.type == AsmTokenType.Instruction && instructionWordsWithParameters.Contains(token.token);
