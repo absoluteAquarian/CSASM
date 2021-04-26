@@ -50,6 +50,7 @@ namespace CSASM{
 				|| type == "obj"
 				|| type == "^<u32>"
 				|| (type.StartsWith("~arr:") && IsCSASMType(type.Substring("~arr:".Length)))
+				|| type == "~arr"
 				|| type == "~set"
 				|| type == "~range";
 
