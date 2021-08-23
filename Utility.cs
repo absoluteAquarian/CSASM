@@ -32,11 +32,11 @@ namespace CSASM{
 				return "u64";
 			if(type == typeof(byte) || type == typeof(BytePrimitive))
 				return "u8";
-			if(type == typeof(Indexer))
+			if(type == typeof(CSASMIndexer))
 				return "^<u32>";
 			if(type == typeof(ArithmeticSet))
 				return "~set";
-			if(type == typeof(Range))
+			if(type == typeof(CSASMRange))
 				return "~range";
 
 			return "object";
@@ -49,7 +49,7 @@ namespace CSASM{
 				|| type == "u8" || type == "u16" || type == "u32" || type == "u64"
 				|| type == "obj"
 				|| type == "^<u32>"
-				|| (type.StartsWith("~arr:") && IsCSASMType(type.Substring("~arr:".Length)))
+				|| (type.StartsWith("~arr:") && IsCSASMType(type["~arr:".Length..]))
 				|| type == "~arr"
 				|| type == "~set"
 				|| type == "~range";
@@ -69,11 +69,11 @@ namespace CSASM{
 				"f32" => typeof(FloatPrimitive),
 				"f64" => typeof(DoublePrimitive),
 				"obj" => typeof(object),
-				"^<u32>" => typeof(Indexer),
+				"^<u32>" => typeof(CSASMIndexer),
 				"~set" => typeof(ArithmeticSet),
-				"~range" => typeof(Range),
-				null => throw new ArgumentNullException("asmType"),
-				_ when asmType.StartsWith("~arr:") => Array.CreateInstance(GetCsharpType(asmType.Substring("~arr:".Length)), 0).GetType(),
+				"~range" => typeof(CSASMRange),
+				null => throw new ArgumentNullException(nameof(asmType)),
+				_ when asmType.StartsWith("~arr:") => Array.CreateInstance(GetCsharpType(asmType["~arr:".Length..]), 0).GetType(),
 				_ => throw new CompileException($"Type \"{asmType}\" did not correlate to a valid CSASM type")
 			};
 

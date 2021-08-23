@@ -352,10 +352,10 @@ namespace CSASM{
 					else if(token.type == AsmTokenType.IncludeTarget){
 						//If the token is surrounded with quotes, remove them
 						if(word.StartsWith("\"") && word.EndsWith("\""))
-							word = word.Substring(1).Substring(0, word.Length - 2);
+							word = word[1..].Substring(0, word.Length - 2);
 						else if(word.StartsWith("<") && word.EndsWith(">")){
 							//If the path is surrounded with < >, then the path is relative to the compiler
-							word = word.Substring(1).Substring(0, word.Length - 2);
+							word = word[1..].Substring(0, word.Length - 2);
 							word += ".csah";
 
 							if(Path.GetInvalidPathChars().Any(c => word.IndexOf(c) != -1))
@@ -382,7 +382,7 @@ namespace CSASM{
 						string directoryPath = Directory.GetParent(sourceFile).FullName;
 						//While ".\" looks cool (and like a nose), it just means to use the current directory
 						if(word.StartsWith(".\\")){
-							word = word.Substring(2);
+							word = word[2..];
 							word = Path.Combine(directoryPath, word);
 
 							goto skipIncludeRest;
@@ -394,7 +394,7 @@ namespace CSASM{
 							//Moving up folders
 							while(word.StartsWith("..\\")){
 								directoryPath = Directory.GetParent(directoryPath).FullName;
-								word = word.Substring("..\\".Length);
+								word = word["..\\".Length..];
 							}
 						}
 

@@ -43,7 +43,7 @@ namespace CSASM{
 		public void Outdent(){
 			if(IndentStride > 0){
 				IndentStride--;
-				indents = indents.Substring(1);
+				indents = indents[1..];
 			}
 		}
 

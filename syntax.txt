@@ -84,7 +84,7 @@ When popping elements from the stack, "A" will refer to the topmost element, "B"
 
 abs ..................... Pops A, then pushes its absolute value
 add ..................... Pops A and B, then pushes B + A.  If either A or B is a <str>, string concatenation is performed instead, then the result is pushed to the stack.  If A and B are <~set>
-                          instances, then the union of the two sets is pushed to the stack.
+                          instances, then the union of the two sets is pushed to the stack.  If B is a <~set> instance and A is either an <~arr:i32> or an <i32>, A will be inserted into B.
 and ..................... Pops A and B, then pushes B & A
 asl ..................... Pops A (an integer), then pushes A << 1
 asr ..................... Pops A (an integer), then pushes A >> 1
@@ -150,17 +150,24 @@ not ..................... Pops A (an integer), then pushes ~A
 or ...................... Pops A and B, then pushes B | A
 
 pop <var> ............... Pops A, then stores it in <var>
+popind <i32>,<var> ...... Pops the value at index $sp + <i32> in the stack, then stores it in <var>
 popd .................... Pops A
 pow ..................... Pops A and B, then pushes B to the power of A as an <f64>
 print ................... Pops A, then prints its string representation to the console
 print.n ................. Pops A, then prints its string representation to the console with a newline appended
 push <arg> .............. Pushes <arg> to the stack
+pushind <i32>,<arg> ..... Inserts <arg> at index $sp + <i32> on the stack.  If $sp + <i32> ends up less than 0, an exception is thrown.  If $sp + <i32> is after the "head" of the stack, <arg> is just
+                          appended onto the stack like in the "push" instruction
 
 rem ..................... Pops A and B, then pushes B % A
+rend .................... Pops A (a <~range>), then pushes the integer at the end of the range.  If the end is an indexer, B (an <~arr> or <str>) is popped and the resulting integer from that index is
+                          pushed instead.
 ret ..................... Returns from a method
 rol ..................... Pops A (an integer), pushes (A << 1) | Carry, then sets or clears the Carry flag based on the Most Significant Bit of A
 root .................... Pops A and B, then pushes the A-th root of B as an <f64>
 ror ..................... Pops A (an integer), pushes (A >> 1) | (Carry << (sizeof(A) * 8 - 1)), then sets or clears the Carry flag based on the Least Significant Bit of A
+rstt .................... Pops A (a <~range>), then pushes the integer at the start of the range.  If the start is an indexer, B (an <~arr> or <str>) is popped and the resulting integer from that index
+                          is pushed instead.
 
 sta <var> ............... Stores the value in the accumulator in <var>
 stelem <index> .......... Pops A (the value to store) and B (an array instance), then stores A in B at the zero-based index <index>
@@ -181,6 +188,10 @@ xor ..................... Pops A and B, then pushes B ^ A
 
 DEFINED REGISTERS
 =================
+
+$sp ..................... The index where elements are pushed to and popped from the stack.  When an object is pushed, this register increments automatically.  When an object is popped, this register
+                          decrements automatically.
+$head ................... The index of the topmost element on the stack.  This register is read-only
 
 $a ...................... The accumulator
 

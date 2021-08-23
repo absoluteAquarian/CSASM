@@ -1,10 +1,9 @@
 ﻿using CSASM.Core;
 using dnlib.DotNet;
 using dnlib.DotNet.Emit;
-using dnlib.DotNet.MD;
-using dnlib.DotNet.Writer;
 using System;
 using System.CodeDom.Compiler;
+using System.Collections;
 using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
@@ -15,7 +14,7 @@ using System.Text.RegularExpressions;
 
 namespace CSASM{
 	public static class AsmCompiler{
-		public const string version = "2.4.0.2";
+		public const string version = "2.4.1";
 
 		//.asm_name
 		public static string asmName = "csasm_prog";
@@ -56,10 +55,10 @@ namespace CSASM{
 				string[] lines = ex.ToString().Replace("\r\n", "\n")
 					.Split('\n')
 					.Select(s => s.StartsWith("   at") && (index = s.IndexOf(" in ")) >= 0
-						? s.Substring(0, index + 4) + s.Substring(s.LastIndexOf('\\') + 1)
+						? s.Substring(0, index + 4) + s[(s.LastIndexOf('\\') + 1)..]
 						: s)
 					.Select(s => s.StartsWith("   at") && (index = s.IndexOf(':')) >= 0
-						? s.Substring(0, index) + " on " + s.Substring(index + 1)
+						? s.Substring(0, index) + " on " + s[(index + 1)..]
 						: s)
 					.ToArray();
 				StringBuilder sb = new StringBuilder(300);
@@ -87,7 +86,7 @@ namespace CSASM{
 				for(int i = 1; i < args.Length; i++){
 					string arg = args[i];
 					if(arg.StartsWith("-out:"))
-						forceOutput = arg.Substring("-out:".Length);
+						forceOutput = arg["-out:".Length..];
 					else if(arg == "-report")
 						reportTranspiledCode = true;
 				}
@@ -145,7 +144,7 @@ namespace CSASM{
 			method.Body.OptimizeBranches();
 			
 			StringBuilder sb = new StringBuilder(10);
-			sb.Append("\t");
+			sb.Append('\t');
 
 			using StreamWriter writer = new StreamWriter(File.Open(sourcePath, FileMode.Create));
 			writer.WriteLine($"IL Function \"{method.Name}\"");
@@ -183,12 +182,12 @@ namespace CSASM{
 						writer.WriteLine($"{sb}.try");
 						writer.WriteLine($"{sb}{{");
 
-						sb.Append("\t");
+						sb.Append('\t');
 					}
 
 					if(handler.TryEnd == instr || handler.HandlerEnd == instr){
 						string orig = sb.ToString();
-						sb = new StringBuilder(orig.Substring(0, orig.Length - 1));
+						sb = new StringBuilder(orig[0..^1]);
 						writer.WriteLine($"{sb}}}");
 						writer.WriteLine();
 					}
@@ -198,7 +197,7 @@ namespace CSASM{
 						writer.WriteLine($"{sb}.catch {handler.CatchType.FullName}");
 						writer.WriteLine($"{sb}{{");
 
-						sb.Append("\t");
+						sb.Append('\t');
 					}
 				}
 
@@ -290,7 +289,7 @@ namespace CSASM{
 							$"\n   Reason: Too many {(total > 0 ? "pushes" : "pops")}");
 
 					if(reportTranspiledCode){
-						Console.WriteLine($"Writing file \"{file.Substring(folder.LastIndexOf(type.Name))}\"...");
+						Console.WriteLine($"Writing file \"{file[folder.LastIndexOf(type.Name)..]}\"...");
 
 						ReportILMethod(file, method);
 
@@ -493,6 +492,7 @@ namespace CSASM{
 			console_get_CapsLock, console_get_CursorLeft, console_set_CursorLeft, console_get_CursorTop, console_set_CursorTop, console_get_ForegroundColor, console_set_ForegroundColor,
 			console_get_Title, console_set_Title, console_get_WindowHeight, console_set_WindowHeight, console_get_WindowWidth, console_set_WindowWidth, console_WriteLine_string;
 		static IField arithmeticset_emptySet;
+		static IMethod core_Utility_deepCloneArray;
 
 		static IMethod exception_toString;
 		static IMethod environment_Exit;
@@ -519,6 +519,11 @@ namespace CSASM{
 				Console.WriteLine();
 
 			ImportStaticMethod(mod, typeof(Environment), "Exit", new Type[]{ typeof(int) }, out environment_Exit);
+
+			if(reportTranspiledCode)
+				Console.WriteLine();
+
+			ImportStaticMethod(mod, typeof(CSASM.Core.Utility), "DeepCloneArray", new Type[]{ typeof(Array) }, out core_Utility_deepCloneArray);
 
 			if(reportTranspiledCode)
 				Console.WriteLine();
@@ -596,20 +601,20 @@ namespace CSASM{
 				Console.WriteLine();
 
 			ImportMethod<IPrimitive>(mod, "get_Value", null, out _, out iprimitive_get_Value);
-			ImportMethod<Indexer>(mod, ".ctor", new Type[]{ typeof(uint) }, out indexer, out indexer_ctor);
+			ImportMethod<CSASMIndexer>(mod, ".ctor", new Type[]{ typeof(uint) }, out indexer, out indexer_ctor);
 
 			if(reportTranspiledCode)
 				Console.WriteLine();
 
-			ImportMethod<Range>(mod, ".ctor", new Type[]{ typeof(int), typeof(int) },     out range, out range_ctor_int_int);
-			ImportMethod<Range>(mod, ".ctor", new Type[]{ typeof(int), typeof(Indexer) }, out _,     out range_ctor_int_indexer);
-			ImportMethod<Range>(mod, ".ctor", new Type[]{ typeof(int), typeof(Indexer) }, out _,     out range_ctor_indexer_indexer);
+			ImportMethod<CSASMRange>(mod, ".ctor", new Type[]{ typeof(int), typeof(int) },     out range, out range_ctor_int_int);
+			ImportMethod<CSASMRange>(mod, ".ctor", new Type[]{ typeof(int), typeof(CSASMIndexer) }, out _,     out range_ctor_int_indexer);
+			ImportMethod<CSASMRange>(mod, ".ctor", new Type[]{ typeof(int), typeof(CSASMIndexer) }, out _,     out range_ctor_indexer_indexer);
 
 			if(reportTranspiledCode)
 				Console.WriteLine();
 
 			ImportMethod<ArithmeticSet>(mod, ".ctor", new Type[]{ typeof(Array) }, out arithmeticset, out arithmeticset_ctor_array);
-			ImportMethod<ArithmeticSet>(mod, ".ctor", new Type[]{ typeof(Range) }, out _,             out arithmeticset_ctor_range);
+			ImportMethod<ArithmeticSet>(mod, ".ctor", new Type[]{ typeof(CSASMRange) }, out _,             out arithmeticset_ctor_range);
 			ImportField<ArithmeticSet>(mod, "EmptySet", out _, out arithmeticset_emptySet);
 
 			if(reportTranspiledCode)
@@ -657,7 +662,7 @@ namespace CSASM{
 					method.Body.Instructions.Insert(index2, OpCodes.Leave.ToInstruction(method.Body.ExceptionHandlers[0].HandlerEnd));
 
 				//Make the main method call it
-				MethodDefUser csasm_main = TryFindMethod(mod, mainClass, "csasm_main") as MethodDefUser;
+				MethodDefUser csasm_main = TryFindMethod(mainClass, "csasm_main") as MethodDefUser;
 				csasm_main.Body.Instructions.Insert(0, OpCodes.Call.ToInstruction(method));
 			}
 
@@ -706,8 +711,13 @@ namespace CSASM{
 
 		static readonly string cacheInitMethod = "InitArrays";
 
-		private static void AssignArrayCachedObject<T>(ModuleDefUser mod, AsmToken sourceToken, T[] array, out FieldDef field){
-			Type tType = typeof(T);
+		private static void AssignArrayCachedObject(ModuleDefUser mod, AsmToken sourceToken, Array array, out FieldDef field)
+			=> InnerAssignArrayCachedObject(mod, sourceToken, array, array.GetType().GetElementType(), out field);
+
+		private static void AssignArrayCachedObjectGeneric<T>(ModuleDefUser mod, AsmToken sourceToken, T[] array, out FieldDef field)
+			=> InnerAssignArrayCachedObject(mod, sourceToken, array, typeof(T), out field);
+
+		private static void InnerAssignArrayCachedObject(ModuleDefUser mod, AsmToken sourceToken, Array array, Type tType, out FieldDef field){
 			if(tType.IsPrimitive && tType != typeof(char))
 				throw new CompileException(token: sourceToken, "Primitive arrays should not be cached.  Check the value type for whatever array is being cached");
 
@@ -738,19 +748,23 @@ namespace CSASM{
 			}else
 				body = method.Body;
 
-			body.Instructions.Add(body.ExceptionHandlers[0].TryStart = OpCodes.Ldc_I4.ToInstruction(array.Length));
+			var instr = OpCodes.Ldc_I4.ToInstruction(array.Length);
+			if(body.ExceptionHandlers[0].TryStart == null)
+				body.ExceptionHandlers[0].TryStart = instr;
+
+			body.Instructions.Add(instr);
 			body.Instructions.Add(OpCodes.Newarr.ToInstruction(importer.ImportAsTypeSig(tType).ToTypeDefOrRef()));
 			body.Instructions.Add(OpCodes.Stsfld.ToInstruction(field));
 
 			for(int i = 0; i < array.Length; i++){
-				T value = array[i];
+				object value = array.GetValue(i);
 				object arg;
 
-				if(value is Range range)
+				if(value is CSASMRange range)
 					arg = (range.start, range.end, range.startIndexer, range.endIndexer);
 				else if(value is ArithmeticSet set)
 					arg = set.ToArray();
-				else if(value is Indexer indexer)
+				else if(value is CSASMIndexer indexer)
 					arg = (int)indexer.offset;
 				else if(value is IPrimitive ip)
 					arg = ip.Value;
@@ -1183,9 +1197,9 @@ namespace CSASM{
 				"f32" => importer.ImportAsTypeSig(typeof(FloatPrimitive)),
 				"f64" => importer.ImportAsTypeSig(typeof(DoublePrimitive)),
 				"obj" => mod.CorLibTypes.Object,
-				"^<u32>" => importer.ImportAsTypeSig(typeof(Indexer)),
+				"^<u32>" => importer.ImportAsTypeSig(typeof(CSASMIndexer)),
 				"~set" => importer.ImportAsTypeSig(typeof(ArithmeticSet)),
-				"~range" => importer.ImportAsTypeSig(typeof(Range)),
+				"~range" => importer.ImportAsTypeSig(typeof(CSASMRange)),
 				null => throw new CompileException(line: line, "Type string was null"),
 				_ => throw new CompileException(line: line, $"Unknown type: {type}")
 			};
@@ -1324,13 +1338,23 @@ namespace CSASM{
 					if(box)
 						body.Instructions.Add(OpCodes.Box.ToInstruction(mod.CorLibTypes.Char));
 				}else if(type == typeof(Array)){
-					var tuple = ((uint, Type))value;
-					body.Instructions.Add(OpCodes.Ldc_I4.ToInstruction((int)tuple.Item1));
-					body.Instructions.Add(OpCodes.Newarr.ToInstruction(importer.Import(tuple.Item2)));
+					if(value is ValueTuple<uint, Type> tuple){
+						body.Instructions.Add(OpCodes.Ldc_I4.ToInstruction((int)tuple.Item1));
+						body.Instructions.Add(OpCodes.Newarr.ToInstruction(importer.Import(tuple.Item2)));
 					
-					if(box)
-						body.Instructions.Add(OpCodes.Box.ToInstruction(importer.Import(Array.CreateInstance(tuple.Item2, 0).GetType())));
-				}else if(type == typeof(Indexer)){
+						if(box)
+							body.Instructions.Add(OpCodes.Box.ToInstruction(importer.Import(Array.CreateInstance(tuple.Item2, 0).GetType())));
+					}else if(value is Array array){
+						AssignArrayCachedObject(mod, sourceToken, array, out FieldDef field);
+
+						body.Instructions.Add(OpCodes.Ldsfld.ToInstruction(field));
+						body.Instructions.Add(OpCodes.Call.ToInstruction(core_Utility_deepCloneArray));
+
+						if(box)
+							body.Instructions.Add(OpCodes.Box.ToInstruction(importer.Import(array.GetType())));
+					}else
+						throw new CompileException(token: sourceToken, "Invalid array constant/initializer");
+				}else if(type == typeof(CSASMIndexer)){
 					body.Instructions.Add(OpCodes.Ldc_I4.ToInstruction((int)value));
 					body.Instructions.Add(OpCodes.Conv_U4.ToInstruction());
 					body.Instructions.Add(OpCodes.Newobj.ToInstruction(indexer_ctor));
@@ -1339,14 +1363,15 @@ namespace CSASM{
 						body.Instructions.Add(OpCodes.Box.ToInstruction(indexer));
 				}else if(type == typeof(ArithmeticSet)){
 					IntPrimitive[] values = (IntPrimitive[])value;
-					AssignArrayCachedObject(mod, sourceToken, values, out FieldDef field);
+					AssignArrayCachedObjectGeneric(mod, sourceToken, values, out FieldDef field);
 					body.Instructions.Add(OpCodes.Ldsfld.ToInstruction(field));
+					body.Instructions.Add(OpCodes.Call.ToInstruction(core_Utility_deepCloneArray));
 					body.Instructions.Add(OpCodes.Newobj.ToInstruction(arithmeticset_ctor_array));
 					
 					if(box)
 						body.Instructions.Add(OpCodes.Box.ToInstruction(arithmeticset));
-				}else if(type == typeof(Range)){
-					var (start, end, startIndexer, endIndexer) = ((int? start, int? end, Indexer? startIndexer, Indexer? endIndexer))value;
+				}else if(type == typeof(CSASMRange)){
+					var (start, end, startIndexer, endIndexer) = ((int? start, int? end, CSASMIndexer? startIndexer, CSASMIndexer? endIndexer))value;
 						
 					if(start != null && end != null){
 						body.Instructions.Add(OpCodes.Ldc_I4.ToInstruction(start.Value));
@@ -1433,7 +1458,7 @@ namespace CSASM{
 
 			//Unquote the string or char
 			if(argToken != null && ((argToken.StartsWith("\"") && argToken.EndsWith("\"")) || (argToken.StartsWith("'") && argToken.EndsWith("'"))))
-				argToken = argToken.Substring(1).Substring(0, argToken.Length - 2);
+				argToken = argToken[1..].Substring(0, argToken.Length - 2);
 
 			IMethod method;
 			AsmToken instr = Tokens.Instruction, instrNoOp = Tokens.InstructionNoParameter, arg = Tokens.InstructionOperand;
@@ -1453,7 +1478,7 @@ namespace CSASM{
 				if(!registers.Contains(argToken))
 					throw new CompileException(token: token, $"Unknown register \"{argToken}\"");
 
-				if(!byte.TryParse(argToken.Substring(5), out byte id))
+				if(!byte.TryParse(argToken[5..], out byte id))
 					throw new CompileException(token: token, $"Invalid I/O register token {argToken}");
 
 				body.Instructions.Add(OpCodes.Ldc_I4.ToInstruction((int)id));
@@ -1483,7 +1508,7 @@ namespace CSASM{
 				if(!registers.Where(s => s.StartsWith("$io.")).Contains(argToken))
 					throw new CompileException(token: token, "Unknown I/O register");
 
-				if(!byte.TryParse(argToken.Substring(5), out byte id))
+				if(!byte.TryParse(argToken[5..], out byte id))
 					throw new CompileException(token: token, $"Invalid I/O register token ({argToken})");
 
 				if(argToken.StartsWith("$io.f") || argToken.StartsWith("$io.n") || argToken.StartsWith("$io.s")){
@@ -1674,7 +1699,7 @@ namespace CSASM{
 			Local local;
 			FieldDefUser global;
 			if(token.token.StartsWith("io.")){
-				if(!byte.TryParse(token.token.Substring(4), out byte id))
+				if(!byte.TryParse(token.token[4..], out byte id))
 					throw new CompileException(token: token, $"Invalid I/O instruction token ({argToken})");
 
 				body.Instructions.Add(OpCodes.Ldc_I4.ToInstruction((int)id));
@@ -1709,7 +1734,7 @@ namespace CSASM{
 					if(!CodeGenerator.IsValidLanguageIndependentIdentifier(argToken))
 						throw new CompileException(token: token, "Instruction argument did not refer to a valid function name");
 
-					method = TryFindMethod(mod, mainClass, argToken);
+					method = TryFindMethod(mainClass, argToken);
 
 					if(method != null)
 						body.Instructions.Add(OpCodes.Call.ToInstruction(method));
@@ -1894,7 +1919,7 @@ namespace CSASM{
 						body.Instructions.Add(OpCodes.Conv_U4.ToInstruction());
 						body.Instructions.Add(OpCodes.Newobj.ToInstruction(indexer_ctor));
 
-						method = GetOpsMethod(mod, "func_ldelem", new Type[]{ typeof(Indexer) });
+						method = GetOpsMethod(mod, "func_ldelem", new Type[]{ typeof(CSASMIndexer) });
 						body.Instructions.Add(OpCodes.Call.ToInstruction(method));
 
 						break;
@@ -1997,7 +2022,7 @@ namespace CSASM{
 						body.Instructions.Add(OpCodes.Conv_U4.ToInstruction());
 						body.Instructions.Add(OpCodes.Newobj.ToInstruction(indexer_ctor));
 
-						method = GetOpsMethod(mod, "func_stelem", new Type[]{ typeof(Indexer) });
+						method = GetOpsMethod(mod, "func_stelem", new Type[]{ typeof(CSASMIndexer) });
 						body.Instructions.Add(OpCodes.Call.ToInstruction(method));
 
 						break;
@@ -2084,7 +2109,7 @@ namespace CSASM{
 			return null;
 		}
 
-		private static IMethod TryFindMethod(ModuleDefUser mod, TypeDefUser type, string name){
+		private static IMethod TryFindMethod(TypeDefUser type, string name){
 			foreach(var method in type.Methods){
 				if(method.Name == name)
 					return method;
@@ -2143,6 +2168,7 @@ namespace CSASM{
 			 *     - the token starts and ends with a single quotation mark and must be a valid C# string
 			 *   
 			 *   Otherwise, if the token matches the name of a global or local, its value will be determined based on its type
+			 *   Otherwise, if the token matches one of the predefined types, its value will be determined based on the representation of a constant of that type
 			 *   
 			 *   If none of the above apply, the token is invalid
 			 */
@@ -2151,19 +2177,19 @@ namespace CSASM{
 
 			//Check variable names first
 			//A local or global match will return a null Type, meaning another method will have to emit IL instructions to retrieve its value
-			Local local = TryGetLocal(locals, token);
+			Local local = locals != null ? TryGetLocal(locals, token) : null;
 			if(local != null){
 				value = local;
 				return null;
 			}
 			
-			FieldDefUser global = TryGetGlobal(globals, token);
+			FieldDefUser global = globals != null ? TryGetGlobal(globals, token) : null;
 			if(global != null){
 				value = global;
 				return null;
 			}
 
-			//Inlined array creation has a special syntax.  Check if it's there
+			//Certain types have custom syntax for creating objects
 			if(CheckInlineArray(token, out Type type, out uint length)){
 				//     ~arr:<type>,<length>
 				//Ex:  ~arr:str,10
@@ -2171,9 +2197,14 @@ namespace CSASM{
 				return typeof(Array);
 			}
 
+			if(CheckInlineArrayConstant(token, out Array array)){
+				value = array;
+				return typeof(Array);
+			}
+
 			if(CheckIndexer(token, out int offset)){
 				value = offset;
-				return typeof(Indexer);
+				return typeof(CSASMIndexer);
 			}
 
 			if(CheckArithmeticSet(token, out int[] setValues)){
@@ -2185,13 +2216,13 @@ namespace CSASM{
 				return typeof(ArithmeticSet);
 			}
 
-			if(CheckRange(token, out Range range)){
+			if(CheckRange(token, out CSASMRange range)){
 				value = (range.start, range.end, range.startIndexer, range.endIndexer);
-				return typeof(Range);
+				return typeof(CSASMRange);
 			}
 			
-			char last = token.Length > 1 ? token[token.Length - 1] : '\0';
-			char nextLast = token.Length > 2 ? token[token.Length - 2] : '\0';
+			char last = token.Length > 1 ? token[^1] : '\0';
+			char nextLast = token.Length > 2 ? token[^2] : '\0';
 			if((last  == 'u' || last == 'U') && uint.TryParse(token.Remove(token.Length - 1), out uint u)){
 				//Number is an unsigned 32bit integer
 				value = u;
@@ -2208,7 +2239,7 @@ namespace CSASM{
 			}else if(token.StartsWith("\"") && token.EndsWith("\"")){
 				//Convert any escape sequences to the actual chars
 				token = SanitizeEscapes(token);
-				value = token.Substring(1).Substring(0, token.Length - 2);
+				value = token[1..].Substring(0, token.Length - 2);
 				return typeof(string);
 			}else if(token.StartsWith("'") && token.EndsWith("'") && token.Length == (token.Contains("\\") ? 4 : 3)){
 				string intermediate = token.Replace("'", "");
@@ -2240,19 +2271,8 @@ namespace CSASM{
 			throw new CompileException($"Token type could not be determined: {token}");
 		}
 
-		private static bool CheckInlineArray(string fullToken, out Type type, out uint length){
-			//    ~arr:<type>,<length>
-			type = null;
-			length = 0;
-
-			if(!fullToken.StartsWith("~arr:") || !fullToken.Contains(","))
-				return false;
-
-			int prefixLength = "~arr:".Length;
-			string substr = fullToken.Substring(prefixLength, fullToken.IndexOf(",") - prefixLength);
-
-			//Determine what type of object the array will contain
-			type = substr switch{
+		private static Type GetArrayElementType(string fullToken, string csasmType)
+			=> csasmType switch{
 				"char" => typeof(char),
 				"str" => typeof(string),
 				"i8" => typeof(SbytePrimitive),
@@ -2266,12 +2286,28 @@ namespace CSASM{
 				"f32" => typeof(FloatPrimitive),
 				"f64" => typeof(DoublePrimitive),
 				"obj" => typeof(object),
-				"^<u32>" => typeof(Core.Indexer),
-				_ => throw new CompileException($"Unknown array type in token: {fullToken}")
+				"^<u32>" => typeof(Core.CSASMIndexer),
+				"~set" => typeof(ArithmeticSet),
+				"~range" => typeof(CSASMRange),
+				_ => throw new CompileException($"Unknown or invalid array type in token: {fullToken} ({csasmType})")
 			};
 
+		private static bool CheckInlineArray(string fullToken, out Type type, out uint length){
+			//    ~arr:<type>,<length>
+			type = null;
+			length = 0;
+
+			if(!fullToken.StartsWith("~arr:") || !fullToken.Contains(","))
+				return false;
+
+			int prefixLength = "~arr:".Length;
+			string substr = fullToken[prefixLength..fullToken.IndexOf(",")];
+
+			//Determine what type of object the array will contain
+			type = GetArrayElementType(fullToken, substr);
+
 			//Determine the length of the array
-			substr = fullToken.Substring(fullToken.IndexOf(",") + 1);
+			substr = fullToken[(fullToken.IndexOf(",") + 1)..];
 			return uint.TryParse(substr, out length);
 		}
 
@@ -2283,7 +2319,7 @@ namespace CSASM{
 			}
 
 			//Remove the curly braces in the middle
-			token = token.Substring(1).Substring(0, token.Length - 2);
+			token = token[1..].Substring(0, token.Length - 2);
 			//Then split it by commas
 			string[] numbers = token.Split(new char[]{ ',' }, StringSplitOptions.RemoveEmptyEntries);
 			values = new int[numbers.Length];
@@ -2305,17 +2341,17 @@ namespace CSASM{
 			return true;
 		}
 
-		private static bool CheckRange(string token, out Range range){
+		private static bool CheckRange(string token, out CSASMRange range){
 			//Expected format:  [<i32>..<i32|^u32>]
-			if(!token.StartsWith("[") || !token.EndsWith("]") || token.IndexOf("..") == -1){
+			if(!token.StartsWith("[") || !token.EndsWith("]") || !token.Contains("..")){
 				range = default;
 				return false;
 			}
 
-			token = token.Substring(1).Substring(0, token.Length - 2);
+			token = token[1..].Substring(0, token.Length - 2);
 			
 			int? start = null, end = null;
-			Indexer? startIndex = null, endIndex = null;
+			CSASMIndexer? startIndex = null, endIndex = null;
 			string[] parts = token.Split(new string[]{ ".." }, StringSplitOptions.RemoveEmptyEntries);
 			
 			if(parts.Length != 2){
@@ -2324,7 +2360,7 @@ namespace CSASM{
 			}
 
 			if(CheckIndexer(parts[0], out int offset))
-				startIndex = new Indexer((uint)offset);
+				startIndex = new CSASMIndexer((uint)offset);
 			else if(int.TryParse(parts[0], out offset))
 				start = offset;
 			else{
@@ -2333,7 +2369,7 @@ namespace CSASM{
 			}
 
 			if(CheckIndexer(parts[1], out offset))
-				endIndex = new Indexer((uint)offset);
+				endIndex = new CSASMIndexer((uint)offset);
 			else if(startIndex == null && int.TryParse(parts[1], out offset))
 				end = offset;
 			else{
@@ -2342,17 +2378,133 @@ namespace CSASM{
 			}
 
 			if(startIndex != null)
-				range = endIndex != null ? new Range(startIndex.Value, endIndex.Value) : default;  //"startIndex" being not null and "endIndex" being null can never happen
+				range = endIndex != null ? new CSASMRange(startIndex.Value, endIndex.Value) : default;  //"startIndex" being not null and "endIndex" being null can never happen
 			else
-				range = endIndex != null ? new Range(start.Value, endIndex.Value) : new Range(start.Value, end.Value);
+				range = endIndex != null ? new CSASMRange(start.Value, endIndex.Value) : new CSASMRange(start.Value, end.Value);
 
 			//Token was valid
 			return true;
 		}
 
+		private static object ConvertToCSASMPrimitive(object value)
+			=> value switch{
+				sbyte sb => new SbytePrimitive(sb),
+				short s => new ShortPrimitive(s),
+				int i => new IntPrimitive(i),
+				long l => new LongPrimitive(l),
+				byte b => new BytePrimitive(b),
+				ushort us => new UshortPrimitive(us),
+				uint ui => new UintPrimitive(ui),
+				ulong ul => new UlongPrimitive(ul),
+				float f => new FloatPrimitive(f),
+				double d => new DoublePrimitive(d),
+				CSASMIndexer idx => idx,
+				CSASMRange r => r,
+				ArithmeticSet a => a,
+				Array arr => arr,
+				null => null,
+				_ => throw new CompileException($"Unknown value type: \"{value.GetType().FullName}\"")
+			};
+
+		private static bool CheckInlineArrayConstant(string token, out Array array){
+			// Expected format:  $<type>:[<array contents>]
+			if(!token.StartsWith("$") || !token.Contains(":")){
+				array = null;
+				return false;
+			}
+
+			string type = token[1..];
+			type = type.Substring(0, type.IndexOf(":"));
+
+			Type arrayType = GetArrayElementType(token, type);
+
+			string restOfToken = token[(token.IndexOf(":") + 1)..];
+			restOfToken = restOfToken[1..].Substring(0, restOfToken.Length - 2);  //Trim the "[" and "]" from the array constant token
+
+			bool inSet = false, inRange = false;
+			StringBuilder sb = new StringBuilder(restOfToken.Length);
+			
+			//Can't believe i'm actually using an ArrayList for this
+			ArrayList list = new ArrayList();
+
+			void RetrieveValue(StringBuilder builder){
+				var vType = GetObjectTypeFromToken(builder.ToString(), out object value, null, null);
+				if(vType == typeof(Array))
+					throw new CompileException("Internal Exception: invalid array constant initialization");
+				else if(vType == typeof(CSASMRange)){
+					var (start, end, startIndexer, endIndexer) = ((int? start, int? end, CSASMIndexer? startIndexer, CSASMIndexer? endIndexer))value;
+
+					if(start != null && end != null)
+						value = new CSASMRange(start.Value, end.Value);
+					else if(start != null && endIndexer != null)
+						value = new CSASMRange(start.Value, endIndexer.Value);
+					else if(startIndexer != null && endIndexer != null)
+						value = new CSASMRange(startIndexer.Value, endIndexer.Value);
+					else
+						throw new CompileException("Internal Exception: invalid CSASMRange initialization");
+				}else if(vType == typeof(CSASMIndexer))
+					value = new CSASMIndexer((uint)(int)value);
+				else if(vType == typeof(ArithmeticSet))
+					value = new ArithmeticSet((IntPrimitive[])value);
+
+				value = ConvertToCSASMPrimitive(value);
+
+				sb.Clear();
+				list.Add(value);
+			}
+
+			//Step through each character and try to parse the values
+			char[] letters = restOfToken.ToCharArray();
+			for(int i = 0; i < letters.Length; i++){
+				char letter = letters[i];
+
+				if(letter == ',' && !inSet){
+					if(sb.Length == 0)
+						throw new CompileException("Empty value found in array constant: " + token);
+
+					RetrieveValue(sb);
+
+					inRange = false;
+					inSet = false;
+
+					continue;
+				}else if(letter == '['){
+					if(inRange)
+						throw new CompileException("Invalid range token in array constant: " + token);
+
+					inRange = true;
+
+					if(!arrayType.IsAssignableFrom(typeof(CSASMRange)))
+						throw new CompileException("CSASMRange constant found in array constant whose type wasn't <obj> or <~range>: " + token);
+				}else if(letter == '{'){
+					if(inSet)
+						throw new CompileException("Invalid set token in array constant: " + token);
+
+					inSet = true;
+
+					if(!arrayType.IsAssignableFrom(typeof(ArithmeticSet)))
+						throw new CompileException("CSASMRange constant found in array constant whose type wasn't <obj> or <~set>: " + token);
+				}else if(inSet && letter == '}'){
+					//Indicate that commas actually matter
+					inSet = false;
+				}
+
+				sb.Append(letter);
+			}
+
+			if(sb.Length > 0)
+				RetrieveValue(sb);
+
+			array = Array.CreateInstance(arrayType, list.Count);
+			for(int i = 0; i < list.Count; i++)
+				array.SetValue(list[i], i);
+
+			return true;
+		}
+
 		internal static char Unescape(string str){
 			if(str.Contains("\\") && str.Length != 2)
-				throw new ArgumentException("Argument length was invalid", "str");
+				throw new ArgumentException("Argument length was invalid", nameof(str));
 
 			if(str.Length == 1)
 				return str[0];
@@ -2369,12 +2521,12 @@ namespace CSASM{
 				'r' => '\r',
 				't' => '\t',
 				'v' => '\v',
-				_ => throw new ArgumentException("Input wasn't an escape sequence", "str"),
+				_ => throw new ArgumentException("Input wasn't an escape sequence", nameof(str)),
 			};
 		}
 
 		private static bool CheckIndexer(string token, out int index){
-			if(token.StartsWith("^") && uint.TryParse(token.Substring(1), out uint u)){
+			if(token.StartsWith("^") && uint.TryParse(token[1..], out uint u)){
 				index = (int)u;
 				return true;
 			}

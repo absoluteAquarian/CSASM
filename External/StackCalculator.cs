@@ -36,7 +36,9 @@ namespace CSASM.External{
 
 		internal static StackCalculator Create() => new StackCalculator(true);
 
+#pragma warning disable IDE0060 // Remove unused parameter
 		StackCalculator(bool dummy){
+#pragma warning restore IDE0060 // Remove unused parameter
 			instructions = null;
 			exceptionHandlers = null;
 			stackHeights = new Dictionary<Instruction, int>();

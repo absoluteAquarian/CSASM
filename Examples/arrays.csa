@@ -1,0 +1,19 @@
+﻿.asm_name Arrays
+.stack 100
+
+func main:
+	; Push array constants, then print them
+	push $i32:[1,5,8,10]
+	print.n
+
+	push $~range:[[1..10],[5..15],[20..24]]
+	print.n
+
+	push $~set:[{0,0,1,3,3,5},{-15,-12,0,-8,3,9}]
+	print.n
+
+	push $f64:[0.25,3.578,21.9982]
+	print.n
+
+	ret
+end
