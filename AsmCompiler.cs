@@ -535,14 +535,16 @@ namespace CSASM{
 			asm.Write(absolute);
 
 			//Copy the samples
-			string text = File.ReadAllText("CompileSamples/program.deps.json");
+			string execDir = new FileInfo(System.Reflection.Assembly.GetExecutingAssembly().Location).Directory.FullName;
+
+			string text = File.ReadAllText(Path.Combine(execDir, "CompileSamples", "program.deps.json"));
 			string asmFile = Path.GetFileNameWithoutExtension(absolute);
 
 			text = text.Replace("<program>", asmFile);
 			asmFile = Path.Combine(asmDir, asmFile);
 			File.WriteAllText(asmFile + ".deps.json", text);
 
-			File.Copy("CompileSamples/program.runtimeconfig.json", asmFile + ".runtimeconfig.json", overwrite: true);
+			File.Copy(Path.Combine(execDir, "CompileSamples", "program.runtimeconfig.json"), asmFile + ".runtimeconfig.json", overwrite: true);
 
 			File.Copy("CSASM.Core.dll", Path.Combine(asmDir, "CSASM.Core.dll"), overwrite: true);
 		}
