@@ -95,5 +95,29 @@ namespace CSASM{
 				Directory.Delete(path, true);
 			}
 		}
+
+		public static void ConsoleWrite(string text, ConsoleColor? color = null){
+			ConsoleColor old = Console.ForegroundColor;
+
+			if(color is ConsoleColor use)
+				Console.ForegroundColor = use;
+
+			Console.Write(text);
+
+			if(color is not null)
+				Console.ForegroundColor = old;
+		}
+
+		public static void ConsoleWriteLine(string text, ConsoleColor? color = null){
+			ConsoleColor old = Console.ForegroundColor;
+
+			if(color is ConsoleColor use)
+				Console.ForegroundColor = use;
+
+			Console.WriteLine(text);
+
+			if(color is not null)
+				Console.ForegroundColor = old;
+		}
 	}
 }

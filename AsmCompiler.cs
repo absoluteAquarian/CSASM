@@ -5,6 +5,11 @@ using System;
 using System.CodeDom.Compiler;
 using System.Collections;
 using System.Collections.Generic;
+using System.CommandLine;
+using System.CommandLine.DragonFruit;
+using System.CommandLine.Invocation;
+using System.CommandLine.Parsing;
+using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.IO;
 using System.Linq;
@@ -14,8 +19,6 @@ using System.Text.RegularExpressions;
 
 namespace CSASM{
 	public static class AsmCompiler{
-		public const string version = "2.4.1";
-
 		//.asm_name
 		public static string asmName = "csasm_prog";
 		//.stack
@@ -24,75 +27,124 @@ namespace CSASM{
 		public static bool foundMainFunc = false;
 
 		public static bool reportTranspiledCode = false;
+		public static bool nestCompiledFiles = false;
 
 		public static string forceOutput;
 
+		public const string FileType = ".dll";
+
 		public static string ExeDirectory{ get; private set; }
 
+		private static RootCommand command;
+		private static string[] commandArgs;
+
 		public static int Main(string[] args){
+			commandArgs = args;
+
+			command = new RootCommand(){
+				new Option<string>("--outfile", () => $"Name of input file, extension renamed to '{FileType}'.", "(Optional) The destination file"),
+				new Option<bool>("--report", () => false, "(Optional) Whether the compilation process is logged to the console"),
+				new Option<bool>("--nestdir", () => true, "(Optional) Whether the compiled file should be in its own nested directory")
+			};
+
+			command.Description = "The CSASM Compiler";
+			// "--version" reports:  (Assembly.GetEntryAssembly() ?? Assembly.GetExecutingAssembly()).GetName().Version.ToString()
+			//Meaning the version uses whatever version is set in Properties/AssemblyInfo.cs
+
+			string inFile = args.Length >= 1 ? args[0] : null;
+
+			command.Handler = CommandHandler.Create<string, bool, bool>((outFile, report, nestDir) => {
+				try{
+					return CommandMain(inFile, outFile, report, nestDir);
+				}catch(Exception ex){
+					if(ex is CompileException && !reportTranspiledCode){
+						Console.WriteLine(ex.Message);
+
+						return -1;
+					}else if(ex is dnlib.DotNet.Writer.ModuleWriterException && ex.Message.StartsWith("Error calculating max stack value")){
+						Console.WriteLine("" +
+							"\nAn error occured while calculating the evaluation stack for the compiling CSASM program." +
+							"\nDouble check that any pops/pushes that occur, as documented in \"docs.txt\" and \"syntax.txt\", are in the correct order.");
+
+						if(!reportTranspiledCode)
+							return -1;
+
+						Console.WriteLine();
+					}
+
+					//Make the line "in" lines shorter
+					int index;
+					string[] lines = ex.ToString().Replace("\r\n", "\n")
+						.Split('\n')
+						.Select(s => s.StartsWith("   at") && (index = s.IndexOf(" in ")) >= 0
+							? s.Substring(0, index + 4) + s[(s.LastIndexOf('\\') + 1)..]
+							: s)
+						.Select(s => s.StartsWith("   at") && (index = s.IndexOf(':')) >= 0
+							? s.Substring(0, index) + " on " + s[(index + 1)..]
+							: s)
+						.ToArray();
+					StringBuilder sb = new StringBuilder(300);
+					foreach(string line in lines)
+						sb.AppendLine(line);
+					Console.WriteLine(sb.ToString());
+					return -1;
+				}
+			});
+
+			return command.Invoke(args.Length >= 1 ? args[1..] : args);
+		}
+
+		/// <summary>
+		/// The entry point
+		/// </summary>
+		/// <param name="inFile">The file to be compiled</param>
+		/// <param name="outFile">(Optional) The destination file</param>
+		/// <param name="report">(Optional) Whether the compilation process is logged to the console</param>
+		/// <param name="nestedDirectory">(Optional) Whether the compiled file should be in its own nested directory</param>
+		private static int CommandMain(string inFile, string outFile = null, bool report = false, bool nestedDirectory = false){
 			ExeDirectory = Directory.GetParent(System.Reflection.Assembly.GetEntryAssembly().Location).FullName;
 
-			try{
-				return Compile(args);
-			}catch(Exception ex){
-				if(ex is CompileException && !reportTranspiledCode){
-					Console.WriteLine(ex.Message);
+			reportTranspiledCode = report;
+			nestCompiledFiles = nestedDirectory;
 
-					return -1;
-				}else if(ex is dnlib.DotNet.Writer.ModuleWriterException && ex.Message.StartsWith("Error calculating max stack value")){
-					Console.WriteLine("" +
-						"\nAn error occured while calculating the evaluation stack for the compiling CSASM program." +
-						"\nDouble check that any pops/pushes that occur, as documented in \"docs.txt\" and \"syntax.txt\", are in the correct order.");
+			return Compile(inFile, outFile);
+		}
 
-					if(!reportTranspiledCode)
-						return -1;
+		private static int Compile(string inFile, string outFile){
+			Console.WriteLine($"CSASM Compiler v{System.Reflection.Assembly.GetExecutingAssembly().GetName().Version}\n");
+
+			const int optionHelpBuffer = 12;
+			StringBuilder sb = new StringBuilder(optionHelpBuffer);
+			for(int i = 0; i < optionHelpBuffer; i++)
+				sb.Append(' ');
+			string space = sb.ToString();
+
+			if(inFile is null){
+				Utility.ConsoleWriteLine("Input file must be defined.", ConsoleColor.Red);
+				Console.WriteLine();
+
+				System.Reflection.MethodInfo get_Argument = typeof(Option).GetProperty("Argument", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance).GetGetMethod(nonPublic: true);
+
+				Console.WriteLine("Options:");
+				foreach(var option in command.Options){
+					var argument = get_Argument.Invoke(option, null) as Argument;
+
+					Console.WriteLine($"  --{option.Name,-optionHelpBuffer} {option.Description}");
+					if(argument.HasDefaultValue)
+						Console.WriteLine($"     {space}Default value: {argument.GetDefaultValue() ?? "null"}");
 
 					Console.WriteLine();
 				}
 
-				//Make the line "in" lines shorter
-				int index;
-				string[] lines = ex.ToString().Replace("\r\n", "\n")
-					.Split('\n')
-					.Select(s => s.StartsWith("   at") && (index = s.IndexOf(" in ")) >= 0
-						? s.Substring(0, index + 4) + s[(s.LastIndexOf('\\') + 1)..]
-						: s)
-					.Select(s => s.StartsWith("   at") && (index = s.IndexOf(':')) >= 0
-						? s.Substring(0, index) + " on " + s[(index + 1)..]
-						: s)
-					.ToArray();
-				StringBuilder sb = new StringBuilder(300);
-				foreach(string line in lines)
-					sb.AppendLine(line);
-				Console.WriteLine(sb.ToString());
+				return -1;
 			}
 
-			return -1;
-		}
+			forceOutput = outFile;
 
-		private static int Compile(string[] args){
-			if(args.Length == 0 && !Utility.IgnoreFile){
-				//Print help info
-				Console.WriteLine("Expected usage:    csasm <file> [-out:<file>] [-report]");
+			if(forceOutput is not null && Path.GetExtension(forceOutput) != FileType)
+				throw new ArgumentException($"Output file was invalid (must have the '{FileType}' extension)");
 
-				//Successful exit, but no compile happened
-				return 1;
-			}
-			
-			Console.WriteLine($"CSASM Compiler v{version}\n");
-
-			if(args.Length > 1){
-				//Parse commandline conditionals
-				for(int i = 1; i < args.Length; i++){
-					string arg = args[i];
-					if(arg.StartsWith("-out:"))
-						forceOutput = arg["-out:".Length..];
-					else if(arg == "-report")
-						reportTranspiledCode = true;
-				}
-			}
-
-			string path = Utility.IgnoreFile ? "" : args[0];
+			string path = Utility.IgnoreFile ? "" : inFile;
 			//Debug lines for VS Edit-and-Continue
 			if(Utility.IgnoreFile){
 				reportTranspiledCode = true;
@@ -430,7 +482,7 @@ namespace CSASM{
 				Console.WriteLine($"   Assembly name: {asmName}\n   Stack size: {stackSize}");
 			
 			//If "forceOutput" was set, verify that it's valid
-			if(forceOutput != null && Path.GetExtension(forceOutput) != ".exe")
+			if(forceOutput != null && Path.GetExtension(forceOutput) != FileType)
 				throw new CompileException($"Assembly name was invalid: {forceOutput}");
 
 			string force = forceOutput is null ? null : Path.ChangeExtension(forceOutput, null);
@@ -451,13 +503,17 @@ namespace CSASM{
 		private static void CompiletoIL(AsmFile source){
 			//I'm not sure if dnLib requires an absolute path...
 			//One will be created anyway
-			string absolute = Path.Combine(Directory.GetCurrentDirectory(), forceOutput ?? $"{asmName}.exe");
+			string asmDir = Directory.GetCurrentDirectory();
+			if(nestCompiledFiles)
+				asmDir = Path.Combine(asmDir, asmName);
+
+			string absolute = Path.Combine(asmDir, forceOutput ?? $"{asmName}{FileType}");
 
 			ModuleDefUser mod = new ModuleDefUser(asmName, Guid.NewGuid(), new AssemblyRefUser(new AssemblyNameInfo(typeof(int).Assembly.GetName().FullName))){
-				Kind = ModuleKind.Console,
-				RuntimeVersion = "v4.0.30319"  //Same runtime version as "CSASM.Core.dll"
+				Kind = FileType == ".dll" ? ModuleKind.Dll : ModuleKind.Console,
+				RuntimeVersion = System.Reflection.Assembly.GetEntryAssembly().ImageRuntimeVersion
 			};
-			var asm = new AssemblyDefUser($"CSASM_program_{asmName}", new Version(version));
+			var asm = new AssemblyDefUser($"CSASM_program_{asmName}", System.Reflection.Assembly.GetExecutingAssembly().GetName().Version);
 
 			asm.Modules.Add(mod);
 
@@ -465,15 +521,30 @@ namespace CSASM{
 			ImportMethod<TargetFrameworkAttribute>(mod, ".ctor", new Type[]{ typeof(string) }, out _, out IMethod method);
 			ICustomAttributeType attr = (MemberRef)method;
 			asm.CustomAttributes.Add(new CustomAttribute(attr,
-				new List<CAArgument>(){ new CAArgument(mod.CorLibTypes.String, ".NETFramework,Version=4.7.2") },
-				new List<CANamedArgument>(){ new CANamedArgument(isField: false, mod.CorLibTypes.String, "FrameworkDisplayName", new CAArgument(mod.CorLibTypes.String, ".NET Framework 4.7.2")) }));
+				new List<CAArgument>(){ new CAArgument(mod.CorLibTypes.String, ".NETCoreApp,Version=5.0") },
+				new List<CANamedArgument>(){ new CANamedArgument(isField: false, mod.CorLibTypes.String, "FrameworkDisplayName", new CAArgument(mod.CorLibTypes.String, "")) }));
 
 			Construct(mod, source);
 
 			if(reportTranspiledCode)
 				Console.WriteLine("Saving CSASM assembly...");
 
+			if(nestCompiledFiles)
+				Directory.CreateDirectory(asmDir);
+
 			asm.Write(absolute);
+
+			//Copy the samples
+			string text = File.ReadAllText("CompileSamples/program.deps.json");
+			string asmFile = Path.GetFileNameWithoutExtension(absolute);
+
+			text = text.Replace("<program>", asmFile);
+			asmFile = Path.Combine(asmDir, asmFile);
+			File.WriteAllText(asmFile + ".deps.json", text);
+
+			File.Copy("CompileSamples/program.runtimeconfig.json", asmFile + ".runtimeconfig.json", overwrite: true);
+
+			File.Copy("CSASM.Core.dll", Path.Combine(asmDir, "CSASM.Core.dll"), overwrite: true);
 		}
 
 		static IMethod csasmStack_Push, csasmStack_Pop;

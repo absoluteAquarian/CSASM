@@ -53,6 +53,7 @@
 		/// <summary>
 		/// Creates a new <seealso cref="AsmToken"/> instance
 		/// </summary>
+		/// <param name="token">The "name" for the token</param>
 		/// <param name="type">The type of token this token will be</param>
 		/// <param name="validNextTokens">Which token types are allowed to be after this token</param>
 		public AsmToken(string token, AsmTokenType type, params AsmTokenType[] validNextTokens){

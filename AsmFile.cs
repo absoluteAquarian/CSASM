@@ -40,7 +40,7 @@ namespace CSASM{
 					char letter = letters[c];
 					if(letter == ';' && !inQuote){
 						//Comment char appeared before the string character.  Remove all letters after this one and this one
-						return c == 0 ? string.Empty : s.Substring(0, c - 1);
+						return c == 0 ? string.Empty : s[..(c - 1)];
 					}else if(letter == '"')
 						inQuote = !inQuote;
 				}
