@@ -38,6 +38,8 @@ namespace CSASM{
 				return "~set";
 			if(type == typeof(CSASMRange))
 				return "~range";
+			if(type == typeof(CSASMList))
+				return "~list";
 
 			return "object";
 		}
@@ -52,7 +54,8 @@ namespace CSASM{
 				|| (type.StartsWith("~arr:") && IsCSASMType(type["~arr:".Length..]))
 				|| type == "~arr"
 				|| type == "~set"
-				|| type == "~range";
+				|| type == "~range"
+				|| type == "~list";
 
 		public static Type GetCsharpType(string asmType)
 			=> asmType switch{
@@ -72,6 +75,7 @@ namespace CSASM{
 				"^<u32>" => typeof(CSASMIndexer),
 				"~set" => typeof(ArithmeticSet),
 				"~range" => typeof(CSASMRange),
+				"~list" => typeof(CSASMList),
 				null => throw new ArgumentNullException(nameof(asmType)),
 				_ when asmType.StartsWith("~arr:") => Array.CreateInstance(GetCsharpType(asmType["~arr:".Length..]), 0).GetType(),
 				_ => throw new CompileException($"Type \"{asmType}\" did not correlate to a valid CSASM type")

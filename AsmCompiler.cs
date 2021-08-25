@@ -550,8 +550,8 @@ namespace CSASM{
 		}
 
 		static IMethod csasmStack_Push, csasmStack_Pop;
-		static IMethod ops_get_Carry, ops_set_Carry, ops_get_Comparison, ops_set_Comparison, ops_get_Conversion, ops_set_Conversion;
-		static IField ops_stack, ops_reg_a, ops_reg_1, ops_reg_2, ops_reg_3, ops_reg_4, ops_reg_5, ops_args;
+		static IMethod ops_get_Carry, ops_set_Carry, ops_get_Comparison, ops_set_Comparison, ops_get_Conversion, ops_set_Conversion, ops_get_SP, ops_set_SP, ops_get_Head, ops_get_DateTimeNow;
+		static IField ops_stack, ops_reg_a, ops_reg_1, ops_reg_2, ops_reg_3, ops_reg_4, ops_reg_5, ops_args, ops_DateTimeEpoch;
 		static ITypeDefOrRef prim_sbyte, prim_byte, prim_short, prim_ushort, prim_int, prim_uint, prim_long, prim_ulong, prim_float, prim_double;
 		static IMethod prim_sbyte_ctor, prim_byte_ctor, prim_short_ctor, prim_ushort_ctor, prim_int_ctor, prim_uint_ctor, prim_long_ctor, prim_ulong_ctor, prim_float_ctor, prim_double_ctor;
 		static IMethod iprimitive_get_Value;
@@ -561,6 +561,10 @@ namespace CSASM{
 		static IMethod arithmeticset_ctor_array, arithmeticset_ctor_range;
 		static ITypeDefOrRef range;
 		static IMethod range_ctor_int_int, range_ctor_int_indexer, range_ctor_indexer_indexer;
+		static ITypeDefOrRef csasmList;
+		static IMethod csasmList_ctor, csasmList_ctor_int;
+		static ITypeDefOrRef dateTimeRef;
+		static IMethod dateTimeRef_ctor, dateTimeRef_ctor_int_int_int, dateTimeRef_ctor_int_int_int_int_int_int, dateTimeRef_ctor_int_int_int_int_int_int_int, dateTimeRef_ctor_DateTime, dateTimeRef_ctor_long;
 		static IMethod console_get_BackgroundColor, console_set_BackgroundColor, console_get_BufferHeight, console_set_BufferHeight, console_get_BufferWidth, console_set_BufferWidth,
 			console_get_CapsLock, console_get_CursorLeft, console_set_CursorLeft, console_get_CursorTop, console_set_CursorTop, console_get_ForegroundColor, console_set_ForegroundColor,
 			console_get_Title, console_set_Title, console_get_WindowHeight, console_set_WindowHeight, console_get_WindowWidth, console_set_WindowWidth, console_WriteLine_string;
@@ -650,6 +654,11 @@ namespace CSASM{
 			ImportStaticMethod(mod, typeof(Ops), "get_Conversion", null,                       out ops_get_Conversion);
 			ImportStaticMethod(mod, typeof(Ops), "set_Conversion", new Type[]{ typeof(bool) }, out ops_set_Conversion);
 			ImportStaticField(mod, typeof(Ops), "args", out ops_args);
+			ImportStaticMethod(mod, typeof(Ops), "get_SP", null, out ops_get_SP);
+			ImportStaticMethod(mod, typeof(Ops), "set_SP", new Type[]{ typeof(int) }, out ops_set_SP);
+			ImportStaticMethod(mod, typeof(Ops), "get_Head", null, out ops_get_Head);
+			ImportStaticMethod(mod, typeof(Ops), "get_DateTimeNow", null, out ops_get_DateTimeNow);
+			ImportStaticField(mod, typeof(Ops), "DateTimeEpoch", out ops_DateTimeEpoch);
 
 			if(reportTranspiledCode)
 				Console.WriteLine();
@@ -679,16 +688,35 @@ namespace CSASM{
 			if(reportTranspiledCode)
 				Console.WriteLine();
 
-			ImportMethod<CSASMRange>(mod, ".ctor", new Type[]{ typeof(int), typeof(int) },     out range, out range_ctor_int_int);
+			ImportMethod<CSASMRange>(mod, ".ctor", new Type[]{ typeof(int), typeof(int) },          out range, out range_ctor_int_int);
 			ImportMethod<CSASMRange>(mod, ".ctor", new Type[]{ typeof(int), typeof(CSASMIndexer) }, out _,     out range_ctor_int_indexer);
 			ImportMethod<CSASMRange>(mod, ".ctor", new Type[]{ typeof(int), typeof(CSASMIndexer) }, out _,     out range_ctor_indexer_indexer);
 
 			if(reportTranspiledCode)
 				Console.WriteLine();
 
-			ImportMethod<ArithmeticSet>(mod, ".ctor", new Type[]{ typeof(Array) }, out arithmeticset, out arithmeticset_ctor_array);
+			ImportMethod<ArithmeticSet>(mod, ".ctor", new Type[]{ typeof(Array) },      out arithmeticset, out arithmeticset_ctor_array);
 			ImportMethod<ArithmeticSet>(mod, ".ctor", new Type[]{ typeof(CSASMRange) }, out _,             out arithmeticset_ctor_range);
 			ImportField<ArithmeticSet>(mod, "EmptySet", out _, out arithmeticset_emptySet);
+
+			if(reportTranspiledCode)
+				Console.WriteLine();
+
+			ImportMethod<CSASMList>(mod, ".ctor", Type.EmptyTypes,           out csasmList, out csasmList_ctor);
+			ImportMethod<CSASMList>(mod, ".ctor", new Type[]{ typeof(int) }, out _,         out csasmList_ctor_int);
+
+			if(reportTranspiledCode)
+				Console.WriteLine();
+
+			ImportMethod<DateTimeRef>(mod, ".ctor", Type.EmptyTypes,                                     out dateTimeRef, out dateTimeRef_ctor);
+			ImportMethod<DateTimeRef>(mod, ".ctor", new Type[]{ typeof(int), typeof(int), typeof(int) }, out _,           out dateTimeRef_ctor_int_int_int);
+			ImportMethod<DateTimeRef>(mod, ".ctor", new Type[]{ typeof(int), typeof(int), typeof(int),
+			                                                    typeof(int), typeof(int), typeof(int) }, out _,           out dateTimeRef_ctor_int_int_int_int_int_int);
+			ImportMethod<DateTimeRef>(mod, ".ctor", new Type[]{ typeof(int), typeof(int), typeof(int),
+			                                                    typeof(int), typeof(int), typeof(int),
+			                                                    typeof(int) },                           out _,           out dateTimeRef_ctor_int_int_int_int_int_int_int);
+			ImportMethod<DateTimeRef>(mod, ".ctor", new Type[]{ typeof(DateTime) },                      out _,           out dateTimeRef_ctor_DateTime);
+			ImportMethod<DateTimeRef>(mod, ".ctor", new Type[]{ typeof(long) },                          out _,           out dateTimeRef_ctor_long);
 
 			if(reportTranspiledCode)
 				Console.WriteLine();
@@ -962,7 +990,7 @@ namespace CSASM{
 
 			//Check each global
 			//If it's an array, make sure to initialize it properly in the main class's .cctor
-			if(globals.Any(fdu => fdu.FieldType.IsSZArray)){
+			if(globals.Any(fdu => fdu.FieldType.IsSZArray || fdu.FieldType.ToTypeDefOrRef() == csasmList)){
 				CilBody body;
 				var cctor = new MethodDefUser(".cctor", MethodSig.CreateStatic(mod.CorLibTypes.Void),
 					MethodImplAttributes.IL | MethodImplAttributes.Managed,
@@ -978,6 +1006,16 @@ namespace CSASM{
 
 						body.Instructions.Add(OpCodes.Ldc_I4.ToInstruction((int)globalArrayLengths[i]));
 						body.Instructions.Add(OpCodes.Newarr.ToInstruction(gType.Next.ToTypeDefOrRef()));
+						body.Instructions.Add(OpCodes.Stsfld.ToInstruction(gVar));
+					}else if(gType.ToTypeDefOrRef() == csasmList){
+						int capacity = (int)globalArrayLengths[i];
+
+						if(capacity > 0){
+							body.Instructions.Add(OpCodes.Ldc_I4.ToInstruction(capacity));
+							body.Instructions.Add(OpCodes.Newobj.ToInstruction(csasmList_ctor_int));
+						}else
+							body.Instructions.Add(OpCodes.Newobj.ToInstruction(csasmList_ctor));
+
 						body.Instructions.Add(OpCodes.Stsfld.ToInstruction(gVar));
 					}
 				}
@@ -1049,10 +1087,17 @@ namespace CSASM{
 							Local local;
 							curMethod.Body.Variables.Add(local = new Local(sig, name.token));
 
-							//If the local var type is an array, define it here
+							//If the local var type is an array or list, define it here
 							if(CheckInlineArray(line[3].token, out Type elemType, out uint length)){
 								curMethod.Body.Instructions.Add(OpCodes.Ldc_I4.ToInstruction((int)length));
 								curMethod.Body.Instructions.Add(OpCodes.Newarr.ToInstruction(new Importer(mod).Import(elemType)));
+								curMethod.Body.Instructions.Add(OpCodes.Stloc.ToInstruction(local));
+							}else if(CheckList(line[3].token, out int capacity)){
+								if(capacity > 0){
+									curMethod.Body.Instructions.Add(OpCodes.Ldc_I4.ToInstruction(capacity));
+									curMethod.Body.Instructions.Add(OpCodes.Newobj.ToInstruction(csasmList_ctor_int));
+								}else
+									curMethod.Body.Instructions.Add(OpCodes.Newobj.ToInstruction(csasmList_ctor));
 								curMethod.Body.Instructions.Add(OpCodes.Stloc.ToInstruction(local));
 							}
 						}
@@ -1188,6 +1233,7 @@ namespace CSASM{
 			}
 		}
 
+		#region Importing
 		private static void ImportMethod<T>(ModuleDefUser mod, string methodName, Type[] methodParams, out ITypeDefOrRef type, out IMethod method){
 			if(methodName == ".cctor")
 				throw new CompileException("Cannot access static constructors via ImportMethod<T>(ModuleDefUser, string, Type[], out ITypeDefOrRef, out IMethod)");
@@ -1243,6 +1289,7 @@ namespace CSASM{
 					Console.WriteLine($"Unable to find field \"{fieldName}\" in type {type.FullName}");
 			}
 		}
+		#endregion
 
 		private static TypeSig GetSigFromCSASMType(ModuleDefUser mod, string type, int line, out uint arrayLength){
 			/*   IMPORTANT NOTES:
@@ -1255,6 +1302,11 @@ namespace CSASM{
 			//First check if the type is an inline array
 			if(CheckInlineArray(type, out Type elemType, out arrayLength))
 				return importer.ImportAsTypeSig(Array.CreateInstance(elemType, 0).GetType()).ToSZArraySig();
+
+			if(CheckList(type, out int capacity)){
+				arrayLength = (uint)capacity;
+				return importer.ImportAsTypeSig(typeof(CSASMList));
+			}
 
 			return type switch{
 				"char" => mod.CorLibTypes.Char,
@@ -1273,6 +1325,8 @@ namespace CSASM{
 				"^<u32>" => importer.ImportAsTypeSig(typeof(CSASMIndexer)),
 				"~set" => importer.ImportAsTypeSig(typeof(ArithmeticSet)),
 				"~range" => importer.ImportAsTypeSig(typeof(CSASMRange)),
+				"~list" => importer.ImportAsTypeSig(typeof(CSASMList)),
+				"~date" => importer.ImportAsTypeSig(typeof(DateTimeRef)),
 				null => throw new CompileException(line: line, "Type string was null"),
 				_ => throw new CompileException(line: line, $"Unknown type: {type}")
 			};
@@ -1345,7 +1399,13 @@ namespace CSASM{
 
 			"$args",
 
-			"$as.e"
+			"$as.e",
+
+			"$sp",
+			"$head",
+
+			"$dtnow",
+			"$dteph"
 		};
 
 		private static readonly Dictionary<string, (IMethod, Type)> instructionMethods = new Dictionary<string, (IMethod, Type)>();
@@ -1468,7 +1528,14 @@ namespace CSASM{
 						throw new CompileException(token: sourceToken, "Invalid range constant");
 
 					if(box)
-						body.Instructions.Add(OpCodes.Box.ToInstruction(AsmCompiler.range));
+						body.Instructions.Add(OpCodes.Box.ToInstruction(range));
+				}else if(type == typeof(CSASMList)){
+					int capacity = (int)value;
+					if(capacity > 0){
+						body.Instructions.Add(OpCodes.Ldc_I4.ToInstruction(capacity));
+						body.Instructions.Add(OpCodes.Newobj.ToInstruction(csasmList_ctor_int));
+					}else
+						body.Instructions.Add(OpCodes.Newobj.ToInstruction(csasmList_ctor));
 				}else if(value != null){
 					//Object is one of the primitives
 					IMethod ctor = value switch{
@@ -1539,7 +1606,7 @@ namespace CSASM{
 
 			#region Functions
 			void ConvIntPrimToInt32(){
-				//(int)((IntPrimitive)stack.Pop()).Value
+				//(int)((IPrimitive)(IntPrimitive)stack.Pop()).Value
 				body.Instructions.Add(OpCodes.Unbox_Any.ToInstruction(prim_int));
 				body.Instructions.Add(OpCodes.Box.ToInstruction(prim_int));
 				body.Instructions.Add(OpCodes.Callvirt.ToInstruction(iprimitive_get_Value));
@@ -1618,6 +1685,30 @@ namespace CSASM{
 					return;
 				}
 
+				if(argToken == "$sp"){
+					body.Instructions.Add(OpCodes.Call.ToInstruction(ops_get_SP));
+					body.Instructions.Add(OpCodes.Box.ToInstruction(prim_int));
+					return;
+				}
+
+				if(argToken == "$head"){
+					body.Instructions.Add(OpCodes.Call.ToInstruction(ops_get_Head));
+					body.Instructions.Add(OpCodes.Box.ToInstruction(prim_int));
+					return;
+				}
+
+				if(argToken == "$dtnow"){
+					body.Instructions.Add(OpCodes.Call.ToInstruction(ops_get_DateTimeNow));
+					body.Instructions.Add(OpCodes.Box.ToInstruction(dateTimeRef));
+					return;
+				}
+
+				if(argToken == "$dteph"){
+					body.Instructions.Add(OpCodes.Ldsfld.ToInstruction(ops_DateTimeEpoch));
+					body.Instructions.Add(OpCodes.Box.ToInstruction(dateTimeRef));
+					return;
+				}
+
 				body.Instructions.Add(argToken switch{
 					"$a" => OpCodes.Ldsfld.ToInstruction(ops_reg_a),
 					"$1" => OpCodes.Ldsfld.ToInstruction(ops_reg_1),
@@ -1639,7 +1730,7 @@ namespace CSASM{
 					"$con.wh" => OpCodes.Call.ToInstruction(console_get_WindowHeight),
 					"$con.ww" => OpCodes.Call.ToInstruction(console_get_WindowWidth),
 					"$args" => OpCodes.Ldsfld.ToInstruction(ops_args),
-					"$as.e" => OpCodes.Ldsflda.ToInstruction(arithmeticset_emptySet),
+					"$as.e" => OpCodes.Ldsfld.ToInstruction(arithmeticset_emptySet),
 					_ => throw new CompileException(token: token, "Invalid register name")
 				});
 
@@ -1648,13 +1739,43 @@ namespace CSASM{
 				else if(argToken.StartsWith("$con.") && argToken != "$con.ttl"){
 					body.Instructions.Add(OpCodes.Newobj.ToInstruction(prim_int_ctor));
 					body.Instructions.Add(OpCodes.Box.ToInstruction(prim_int));
-				}else if(argToken == "$args"){
+				}else if(argToken == "$args")
 					body.Instructions.Add(OpCodes.Box.ToInstruction(string_array_ref.ToTypeDefOrRef()));
-				}
+				else if(argToken == "$as.e")
+					body.Instructions.Add(OpCodes.Box.ToInstruction(arithmeticset));
 			}
 
 			void LdRegisterNoFlags(string instruction){
 				if(!argToken.StartsWith("$con.")){
+					if(argToken.StartsWith("$io.")){
+						LdIORegister();
+						return;
+					}
+
+					if(argToken == "$sp"){
+						body.Instructions.Add(OpCodes.Call.ToInstruction(ops_get_SP));
+						body.Instructions.Add(OpCodes.Box.ToInstruction(prim_int));
+						return;
+					}
+
+					if(argToken == "$head"){
+						body.Instructions.Add(OpCodes.Call.ToInstruction(ops_get_Head));
+						body.Instructions.Add(OpCodes.Box.ToInstruction(prim_int));
+						return;
+					}
+
+					if(argToken == "$dtnow"){
+						body.Instructions.Add(OpCodes.Call.ToInstruction(ops_get_DateTimeNow));
+						body.Instructions.Add(OpCodes.Box.ToInstruction(dateTimeRef));
+						return;
+					}
+
+					if(argToken == "$dteph"){
+						body.Instructions.Add(OpCodes.Ldsfld.ToInstruction(ops_DateTimeEpoch));
+						body.Instructions.Add(OpCodes.Box.ToInstruction(dateTimeRef));
+						return;
+					}
+
 					body.Instructions.Add(OpCodes.Ldsfld.ToInstruction(argToken switch{
 						"$a" => ops_reg_a,
 						"$1" => ops_reg_1,
@@ -1669,12 +1790,12 @@ namespace CSASM{
 						"$as.e" => arithmeticset_emptySet,
 						_ => throw new CompileException(token: token, "Invalid register name")
 					}));
-				}else{
-					if(argToken.StartsWith("$io.")){
-						LdIORegister();
-						return;
-					}
 
+					if(argToken == "$args")
+						body.Instructions.Add(OpCodes.Box.ToInstruction(string_array_ref.ToTypeDefOrRef()));
+					else if(argToken == "$as.e")
+						body.Instructions.Add(OpCodes.Box.ToInstruction(arithmeticset));
+				}else{
 					body.Instructions.Add(OpCodes.Call.ToInstruction(argToken switch{
 						"$con.bcol" => console_get_BackgroundColor,
 						"$con.bh" => console_get_BufferHeight,
@@ -1710,6 +1831,12 @@ namespace CSASM{
 						return;
 					}
 
+					if(argToken == "$sp"){
+						ConvIntPrimToInt32();
+						body.Instructions.Add(OpCodes.Call.ToInstruction(ops_set_SP));
+						return;
+					}
+
 					body.Instructions.Add(argToken switch{
 						"$a" => OpCodes.Stsfld.ToInstruction(ops_reg_a),
 						"$1" => OpCodes.Stsfld.ToInstruction(ops_reg_1),
@@ -1722,6 +1849,9 @@ namespace CSASM{
 						"$f.o" => throw new CompileException(token: token, "Comparison flag should be set/cleared using the \"clf.o\" and \"stf.o\" instructions"),
 						"$args" => OpCodes.Stsfld.ToInstruction(ops_args),
 						"$as.e" => throw new CompileException(token: token, "Cannot modify the EmptySet global"),
+						"$head" => throw new CompileException(token: token, "Cannot modify $head register"),
+						"$dtnow" => throw new CompileException(token: token, "Cannot modify $dtnow register"),
+						"$dteph" => throw new CompileException(token: token, "Cannot modify $dteph register"),
 						_ => throw new CompileException(token: token, "Invalid register name")
 					});
 				}else{
@@ -1732,7 +1862,7 @@ namespace CSASM{
 						"$con.bcol" => console_set_BackgroundColor,
 						"$con.bh" => console_set_BufferHeight,
 						"$con.bw" => console_set_BufferWidth,
-						"$con.caps" => throw new CompileException(token: token, "Register \"$con.caps\" cannot be assigned a value"),
+						"$con.caps" => throw new CompileException(token: token, "Cannot modify $con.caps register"),
 						"$con.cx" => console_set_CursorLeft,
 						"$con.cy" => console_set_CursorTop,
 						"$con.fcol" => console_set_ForegroundColor,
@@ -2293,6 +2423,11 @@ namespace CSASM{
 				value = (range.start, range.end, range.startIndexer, range.endIndexer);
 				return typeof(CSASMRange);
 			}
+
+			if(CheckList(token, out int initialCapacity)){
+				value = initialCapacity;
+				return typeof(CSASMList);
+			}
 			
 			char last = token.Length > 1 ? token[^1] : '\0';
 			char nextLast = token.Length > 2 ? token[^2] : '\0';
@@ -2459,6 +2594,33 @@ namespace CSASM{
 			return true;
 		}
 
+		private static bool CheckList(string token, out int initialCapacity){
+			//Expected format:
+			//  ~list
+			//  ~list,<i32>
+			initialCapacity = -1;
+
+			if(token == "~list"){
+				initialCapacity = 0;
+				return true;
+			}
+
+			if(!token.StartsWith("~list"))
+				return false;
+
+			int commaIdx = token.IndexOf(',');
+			if(commaIdx != "~list".Length)
+				return false;
+
+			string amountStr = token[(commaIdx + 1)..];
+			if(uint.TryParse(amountStr, out uint capacity)){ 
+				initialCapacity = (int)capacity;
+				return true;
+			}
+
+			return false;
+		}
+
 		private static object ConvertToCSASMPrimitive(object value)
 			=> value switch{
 				sbyte sb => new SbytePrimitive(sb),
@@ -2475,6 +2637,7 @@ namespace CSASM{
 				CSASMRange r => r,
 				ArithmeticSet a => a,
 				Array arr => arr,
+				CSASMList l => l,
 				null => null,
 				_ => throw new CompileException($"Unknown value type: \"{value.GetType().FullName}\"")
 			};
@@ -2503,7 +2666,7 @@ namespace CSASM{
 			void RetrieveValue(StringBuilder builder){
 				var vType = GetObjectTypeFromToken(builder.ToString(), out object value, null, null);
 				if(vType == typeof(Array))
-					throw new CompileException("Internal Exception: invalid array constant initialization");
+					throw new CompileException("Internal Exception: invalid array constant initialization (Tried to make an array of arrays)");
 				else if(vType == typeof(CSASMRange)){
 					var (start, end, startIndexer, endIndexer) = ((int? start, int? end, CSASMIndexer? startIndexer, CSASMIndexer? endIndexer))value;
 
@@ -2519,6 +2682,8 @@ namespace CSASM{
 					value = new CSASMIndexer((uint)(int)value);
 				else if(vType == typeof(ArithmeticSet))
 					value = new ArithmeticSet((IntPrimitive[])value);
+				else if(vType == typeof(CSASMList))
+					throw new CompileException("Internal Exception: invalid array constant initialization (Tried to make an array of lists)");
 
 				value = ConvertToCSASMPrimitive(value);
 

@@ -1,0 +1,29 @@
+﻿.asm_name Lists
+.stack 100
+
+func main:
+	; Create a list, add values to it, then print its contents
+	.local list : ~list,3
+
+	push list
+	push 25
+	stelem 0
+	
+	push list
+	push "Hello"
+	stelem 1
+
+	push list
+	push 4.0
+	stelem 2
+
+	; Storing to indices past the end of the list will resize the list
+	push list
+	push [0..2]
+	stelem 4
+
+	push list
+	print.n
+
+	ret
+end

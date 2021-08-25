@@ -1,0 +1,37 @@
+﻿.asm_name DateTimeUsage
+.stack 100
+
+func main:
+	; This example shows off usage of the <~date> type
+	.local date : ~date
+	push $dtnow
+	pop date
+
+	; Print the current day/month/year
+	push date
+	push "dd.MM.yyyy"
+	dtfmt
+	print.n
+
+	; Add 5 days to "date"
+	push date
+	push 5.0
+	dtadd.d
+
+	; Print the date again
+	push date
+	push "dd.MM.yyyy"
+	dtfmt
+	print.n
+
+	; Construct a <~date> from Years, Months and Days
+	push 2001
+	push 12
+	push 25
+	dtnew.ymd
+	push "dd.MM.yyyy"
+	dtfmt
+	print.n
+
+	ret
+end

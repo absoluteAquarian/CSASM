@@ -53,6 +53,9 @@ DEFINED TYPES
 
 ~arr .................... The array type indicator passed to the "io.r<u32>" instruction
 ~arr:<type>,<i32> ....... A new <type> array instance with <i32> elements
+~date ................... The DateTime type in C#
+~list ................... A resizable collection of values initialized to zero elements
+~list,<i32> ............. A resizable collection of values initialized to <i32> elements
 ~range .................. A range of integers
 ~set .................... An arithmetic set of values
 
@@ -80,7 +83,15 @@ u8 ...................... Unsigned 8-bit integer type
 
 DEFINED INSTRUCTIONS
 ====================
-When popping elements from the stack, "A" will refer to the topmost element, "B" will refer to the element after that and "C" will refer to the element after that
+When popping elements from the stack, the order of values on the stack will be denoted as follows:
+
+- G
+- F
+- E
+- D
+- C
+- B
+- A (topmost element)
 
 abs ..................... Pops A, then pushes its absolute value
 add ..................... Pops A and B, then pushes B + A.  If either A or B is a <str>, string concatenation is performed instead, then the result is pushed to the stack.  If A and B are <~set>
@@ -110,13 +121,36 @@ comp.lt ................. Pops A and B, then sets the Comparison flag iff B < A
 comp.lte ................ Pops A and B, then sets the Comparison flag iff B <= A
 conrc ................... Reverts the console's colours to its defaults
 conv <type> ............. Pops A, converts it to <type>, then pushes the result.  If A is a <str> and <type> is a number type, the Conversion flag will be set if the instruction was
-                          successful, otherwise a zero for that type will be pushed to the stack instead.
+                          successful, otherwise a zero for that type will be pushed to the stack instead.  If A is a <~list> instance and <type> is "~arr", then A is converted to an <~arr:obj> and
+                          that array is pushed to the stack.
 conv.a <type> ........... Converts the value in the accumulator to the given type
 
 dec <var> ............... Decrements an integer stored in <var> by one
 disj .................... Pops A and B (<~set> instances), then sets the Comparison flag iff A and B are disjoint
 div ..................... Pops A and B, then pushes B / A.  If B is a <str> and A is a <str> or <char>, the result of "B.Split(A)" (an <~arr:str>) is pushed to the stack instead.  If A and B are
-                          <~set> instances, then the intersection of the two sets is pushed to the stack.
+                          <~set> instances, then the intersection of the two sets is pushed to the stack
+dtadd.d ................. Pops A (an <f64>) and B (a <~date> instance) and adds A to B's Day value
+dtadd.h ................. Pops A (an <f64>) and B (a <~date> instance) and adds A to B's Hour value
+dtadd.mi ................ Pops A (an <f64>) and B (a <~date> instance) and adds A to B's Minute value
+dtadd.ms ................ Pops A (an <f64>) and B (a <~date> instance) and adds A to B's Millisecond value
+dtadd.mt ................ Pops A (an <i32>) and B (a <~date> instance) and adds A to B's Month value
+dtadd.t ................. Pops A (an <i64>) and B (a <~date> instance) and adds A to B's Ticks value
+dtadd.s ................. Pops A (an <f64>) and B (a <~date> instance) and adds A to B's Second value
+dtadd.y ................. Pops A (an <i32>) and B (a <~date> instance) and adds A to B's Year value
+dtfmt ................... Pops A (a <~str>) and B (a <~date> instance), formats B according to A, then pushes the <~str> result to the stack
+dtnew.t ................. Pops A (an <i64>) and creates a new <~date> instance using A as the Ticks value
+dtnew.ymd ............... Pops A, B and C (<i32> values) and creates a new <~date> instance using C as the Year, B as the Month and A as the Day
+dtnew.ymdhms ............ Pops A, B, C, D, E and F (<i32> values) and creates a new <~date> instance using F as the Year, E as the Month, D as the Day, C as the Hour, B as the Minutes and A as the Seconds
+dtnew.ymdhmsm ........... Pops A, B, C, D, E, F and G (<i32 values) and creates a new <~date> instance using G as the Year, F as the Month, E as the Day, D as the Hour, C as the Minutes, B as the Seconds
+                          and A as the Milliseconds
+dt.day .................. Pops A (a <~date> instance) and pushes its Day value as an <i32> value
+dt.hour ................. Pops A (a <~date> instance) and pushes its Hour value as an <i32> value
+dt.min .................. Pops A (a <~date> instance) and pushes its Minute value as an <i32> value
+dt.month ................ Pops A (a <~date> instance) and pushes its Month value as an <i32> value
+dt.msec ................. Pops A (a <~date> instance) and pushes its Millisecond value as an <i32> value
+dt.sec .................. Pops A (a <~date> instance) and pushes its Second value as an <i32> value
+dt.ticks ................ Pops A (a <~date> instance) and pushes its Ticks value as an <i64> value
+dt.year ................. Pops A (a <~date> instance) and pushes its Year value as an <i32> value
 dup ..................... Pops A, then pushes A twice
 
 exit .................... Stops the program
@@ -124,7 +158,7 @@ extern <func> ........... Calls an external function from the C# standard librar
 
 in <str> ................ Prints <str>, then waits for a newline-terminated string of text.  The input is pushed to the stack
 inc <var> ............... Increments an integer stored in <var> by one
-index ................... Pops A and B.  If A is a <str> or array instance, the first index of B will be pushed to the stack OR -1 if B is not in A
+index ................... Pops A and B.  If A is a <str>, array instance or <~list> instance, the first index of B will be pushed to the stack OR -1 if B is not in A
 ink <str> ............... Prints <str>, then waits for the user to press a key.  The <char> key input is pushed to the stack
 inki <str> .............. Prints <str>, then waits for the user to press a key (the key will not appear in the command prompt).  The <char> key is pushed to the stack
 interp <str> ............ Pops A (an <obj> array), then uses its values to modify <str>
@@ -135,7 +169,7 @@ is.a <type> ............. Sets the Comparison flag iff the value contained in th
 isarr <type> ............ Pops A, then sets the Comparison flag iff A is an array and its element type is <type>.  For checking if A is just an array, pass in obj as the <type>
 
 lda <var> ............... Stores <var> into the accumulator
-ldelem <index> .......... Pops A (an array instance), then pushes the value contained in A at the zero-based index <index>
+ldelem <index> .......... Pops A (an array instance), then pushes the value contained in A at the zero-based index <index>.  A can also be a <~list> instance
 len ..................... Pops A (an array instance or a <str>), then pushes the length of A
 
 mul ..................... Pops A and B, then pushes B * A.  If B is a <str> and A is a positive integer, B will be repeated A times in one <str> and that <str> is pushed to the stack instead.
@@ -143,6 +177,8 @@ mul ..................... Pops A and B, then pushes B * A.  If B is a <str> and 
 neg ..................... Pops A, then pushes -A
 newarr <type> ........... Pops A (an <i32>), then pushes a new <type> array instance whose length is A
 newindex ................ Pops A (a <u32>), then pushes a new ^<u32> (indexer) instance whose offset is set to A
+newlist ................. Pops A (an <i32>), then pushes a new <~list> instance whose initial capacity is A
+newlist.z ............... Pushes a new empty <~list> instance
 newrange ................ Pops A (an <i32> or indexer) and B (an <i32> or indexer), then pushes a new range instance.  If B is an indexer instance, A must be one as well.
 newset .................. Pops A (an array of integers), then pushes a new <~set> instance initialized to the contents of A
 not ..................... Pops A (an integer), then pushes ~A
@@ -170,7 +206,8 @@ rstt .................... Pops A (a <~range>), then pushes the integer at the st
                           is pushed instead.
 
 sta <var> ............... Stores the value in the accumulator in <var>
-stelem <index> .......... Pops A (the value to store) and B (an array instance), then stores A in B at the zero-based index <index>
+stelem <index> .......... Pops A (the value to store) and B (an array instance), then stores A in B at the zero-based index <index>.  If B is a <~list> instance and <index> exceeds the list's capacity,
+                          the list is resized to fit <index>.
 stf.c ................... Sets the Carry flag
 stf.n ................... Sets the Conversion flag
 stf.o ................... Sets the Comparison flag
@@ -183,23 +220,23 @@ swap .................... Swaps A and B on the stack
 throw <str> ............. Throws a "ThrowException" with whose message is <str>
 type .................... Pops A, then pushes a <str> representing its type
 
+wait .................... Pops A (an <i32>) then waits for that many milliseconds
+
 xor ..................... Pops A and B, then pushes B ^ A
 
 
 DEFINED REGISTERS
 =================
 
-$sp ..................... The index where elements are pushed to and popped from the stack.  When an object is pushed, this register increments automatically.  When an object is popped, this register
-                          decrements automatically.
-$head ................... The index of the topmost element on the stack.  This register is read-only
-
-$a ...................... The accumulator
-
 $1 ...................... A register.  Can be used to store any value independently of the stack
 $2 ......................   ---
 $3 ......................   ---
 $4 ......................   ---
 $5 ......................   ---
+
+$a ...................... The accumulator
+$args ................... The arguments passed to the program, excluding the debug flags
+$as.e ................... The empty arithmetic set
 
 $con.bcol ............... The current color of the background.  Expected values are between 0 and 15, inclusive.
 $con.bh ................. The console's buffer height
@@ -212,9 +249,14 @@ $con.ttl ................ The console's title
 $con.wh ................. The console's window height
 $con.ww ................. The console's window width
 
+$dtnow .................. System.DateTime.Now as a <~date> instance
+$dteph .................. System.DateTime.UnixEpoch as a <~date> instance
+
 $f.c .................... The Carry flag
 $f.n .................... The Conversion flag
 $f.o .................... The Comparison flag
+
+$head ................... The index of the topmost element on the stack.  This register is read-only
 
 $io.f<u8> ............... Whether the I/O instance indicated by the <u8> constant should read (0) or write (1)
 $io.m<u8> ............... The FileMode for the I/O instance indicated by the <u8> constant.  Can only be written to if the instance isn't active
@@ -222,6 +264,5 @@ $io.n<u8> ............... If the I/O instance indicated by the <u8> constant is 
 $io.p<u8> ............... The path to the file that the I/O instance indicated by the <u8> constant will use.  Write null to close the instance
 $io.s<u8> ............... Whether the I/O instance indicated by the <u8> constant is in Binary (0) or Stream (1) mode
 
-$args ................... The arguments passed to the program, excluding the debug flags
-
-$as.e ................... The empty arithmetic set
+$sp ..................... The index where elements are pushed to and popped from the stack.  When an object is pushed, this register increments automatically.  When an object is popped, this register
+                          decrements automatically.
