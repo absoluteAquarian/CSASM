@@ -57,7 +57,9 @@ DEFINED TYPES
 ~list ................... A resizable collection of values initialized to zero elements
 ~list,<i32> ............. A resizable collection of values initialized to <i32> elements
 ~range .................. A range of integers
+~regex .................. The Regex type in C#
 ~set .................... An arithmetic set of values
+~time ................... The TimeSpan type in C#
 
 ^<u32> .................. An indexing type
 
@@ -105,14 +107,15 @@ binz .................... Pops A (an integer), then pushes a <str> of the binary
 bit <u8> ................ Pops A (an integer), then pushes the bit at position A.  If A doesn't refer to a valid bit, 0 is pushed instead
 bits .................... Pops A (an <f32> or <f64>), then pushes an <i32> or <i64> set to the bit representation of A
 br <label> .............. Unconditionally jumps execution to <label>
-brfalse <label> ......... Jumps execution to <label> iff the accumulator contains a null or zero
-brtrue <label> .......... Jumps execution to <label> iff the accumulator contains a non-zero integer, or a non-null object
+brfalse <label> ......... Jumps execution to <label> iff the accumulator contains a zero, an empty <~set>, an uninitialized <~regex> or a <~regex> with unsuccessful matches or a null object
+brtrue <label> .......... Jumps execution to <label> iff the accumulator contains a non-zero integer, non-empty <~set>, an initialized <~regex> with successful matches or a non-null object
 bytes ................... Pops A, then pushes how many bytes of memory A uses.
 
 call <func> ............. Calls a function.  The function's arguments must be pushed to the stack before this instruction
 clf.c ................... Clears the Carry flag
 clf.n ................... Clears the Conversion flag
 clf.o ................... Clears the Comparison flag
+clf.r ................... Clears the RegexSuccessful flag
 cls ..................... Clears the console
 comp .................... Pops A and B, then sets the Comparison flag iff A == B
 comp.gt ................. Pops A and B, then sets the Comparison flag iff B > A
@@ -129,6 +132,7 @@ dec <var> ............... Decrements an integer stored in <var> by one
 disj .................... Pops A and B (<~set> instances), then sets the Comparison flag iff A and B are disjoint
 div ..................... Pops A and B, then pushes B / A.  If B is a <str> and A is a <str> or <char>, the result of "B.Split(A)" (an <~arr:str>) is pushed to the stack instead.  If A and B are
                           <~set> instances, then the intersection of the two sets is pushed to the stack
+divr .................... Pops A and B, then pushes X where B / A = N r X
 dtadd.d ................. Pops A (an <f64>) and B (a <~date> instance) and adds A to B's Day value
 dtadd.h ................. Pops A (an <f64>) and B (a <~date> instance) and adds A to B's Hour value
 dtadd.mi ................ Pops A (an <f64>) and B (a <~date> instance) and adds A to B's Minute value
@@ -137,7 +141,7 @@ dtadd.mt ................ Pops A (an <i32>) and B (a <~date> instance) and adds 
 dtadd.t ................. Pops A (an <i64>) and B (a <~date> instance) and adds A to B's Ticks value
 dtadd.s ................. Pops A (an <f64>) and B (a <~date> instance) and adds A to B's Second value
 dtadd.y ................. Pops A (an <i32>) and B (a <~date> instance) and adds A to B's Year value
-dtfmt ................... Pops A (a <~str>) and B (a <~date> instance), formats B according to A, then pushes the <~str> result to the stack
+dtfmt ................... Pops A (a <str>) and B (a <~date> instance), formats B according to A, then pushes the <str> result to the stack
 dtnew.t ................. Pops A (an <i64>) and creates a new <~date> instance using A as the Ticks value
 dtnew.ymd ............... Pops A, B and C (<i32> values) and creates a new <~date> instance using C as the Year, B as the Month and A as the Day
 dtnew.ymdhms ............ Pops A, B, C, D, E and F (<i32> values) and creates a new <~date> instance using F as the Year, E as the Month, D as the Day, C as the Hour, B as the Minutes and A as the Seconds
@@ -186,19 +190,19 @@ not ..................... Pops A (an integer), then pushes ~A
 or ...................... Pops A and B, then pushes B | A
 
 pop <var> ............... Pops A, then stores it in <var>
-popind <i32>,<var> ...... Pops the value at index $sp + <i32> in the stack, then stores it in <var>
 popd .................... Pops A
 pow ..................... Pops A and B, then pushes B to the power of A as an <f64>
 print ................... Pops A, then prints its string representation to the console
 print.n ................. Pops A, then prints its string representation to the console with a newline appended
-push <arg> .............. Pushes <arg> to the stack
-pushind <i32>,<arg> ..... Inserts <arg> at index $sp + <i32> on the stack.  If $sp + <i32> ends up less than 0, an exception is thrown.  If $sp + <i32> is after the "head" of the stack, <arg> is just
-                          appended onto the stack like in the "push" instruction
+push <var> .............. Pushes <var> to the stack
 
 rem ..................... Pops A and B, then pushes B % A
 rend .................... Pops A (a <~range>), then pushes the integer at the end of the range.  If the end is an indexer, B (an <~arr> or <str>) is popped and the resulting integer from that index is
                           pushed instead.
 ret ..................... Returns from a method
+rgxms <var> ............. Pops A (a <~regex>) and attempts to get a match string from A.  <var> must be either a <i32> variable or constant
+rgxmt ................... Pops A (a <str>) and B (a <~regex>) and attempts to match A to B's pattern.  If the match was successful, the RegexSuccessful flag is set
+rgxnew .................. Pops A (a <str>) and pushes a compiled <~regex> instance whose expression is set to A
 rol ..................... Pops A (an integer), pushes (A << 1) | Carry, then sets or clears the Carry flag based on the Most Significant Bit of A
 root .................... Pops A and B, then pushes the A-th root of B as an <f64>
 ror ..................... Pops A (an integer), pushes (A >> 1) | (Carry << (sizeof(A) * 8 - 1)), then sets or clears the Carry flag based on the Least Significant Bit of A
@@ -211,6 +215,7 @@ stelem <index> .......... Pops A (the value to store) and B (an array instance),
 stf.c ................... Sets the Carry flag
 stf.n ................... Sets the Conversion flag
 stf.o ................... Sets the Comparison flag
+stf.r ................... Sets the RegexSuccessful flag
 sub ..................... Pops A and B, then pushes B - A.  If B is a <str> and A is a <str> or <char>, all instances of A will be removed from B and the result will be pushed to the stack.  If A and
                           B are <~set> instances, then the difference of the two sets is pushed to the stack.
 substr .................. Pops A (an <i32> or indexer), B (an <i32> or indexer) and C (a <str>), then pushes the substring of C from position B to position A.  However, if A is a range instance,
@@ -218,6 +223,29 @@ substr .................. Pops A (an <i32> or indexer), B (an <i32> or indexer) 
 swap .................... Swaps A and B on the stack
 
 throw <str> ............. Throws a "ThrowException" with whose message is <str>
+tmadd.d ................. Pops A (an <f64>) and B (a <~time> instance) and adds A to B's Days value
+tmadd.mi ................ Pops A (an <f64>) and B (a <~time> instance) and adds A to B's Minutes value
+tmadd.ms ................ Pops A (an <f64>) and B (a <~time> instance) and adds A to B's Milliseconds value
+tmadd.h ................. Pops A (an <f64>) and B (a <~time> instance) and adds A to B's Hours value
+tmadd.s ................. Pops A (an <f64>) and B (a <~time> instance) and adds A to B's Seconds value
+tmadd.t ................. Pops A (an <i64>) and B (a <~time> instance) and adds A to B's Ticks value
+tmfmt ................... Pops A (a <str>) and B (a <~time> instance), formats B according to A, then pushes the <str> result to the stack
+tmnew ................... Creates a <~time> instance equal to TimeSpan.Zero
+tmnew.dhms .............. Pops A, B, C and D (<i32> values) and creates a new <~time> instance using D as the Day, C as the Hour, B as the Minutes and A as the Seconds
+tmnew.dhmsm ............. Pops A, B, C, D and E (<i32> values) and creates a new <~time> instance using E as the Day, D as the Hour, C as the Minutes, B as the Seconds and A as the Milliseconds
+tmnew.hms ............... Pops A, B and C (<i32> values) and creates a new <~time> instance using C as the Hour, B as the Minutes and A as the Seconds
+tmnew.t ................. Pops A (an <i64>) and creates a new <~time> instance using A as the Ticks value
+tm.day .................. Pops A (a <~time> instance) and pushes its Days value as an <i32> value
+tm.hour ................. Pops A (a <~time> instance) and pushes its Hours value as an <i32> value
+tm.min .................. Pops A (a <~time> instance) and pushes its Minutes value as an <i32> value
+tm.msec ................. Pops A (a <~time> instance) and pushes its Milliseconds value as an <i32> value
+tm.sec .................. Pops A (a <~time> instance) and pushes its Seconds value as an <i32> value
+tm.tday ................. Pops A (a <~time> instance) and pushes its TotalDays value as an <f64> value
+tm.thour ................ Pops A (a <~time> instance) and pushes its TotalHours value as an <f64> value
+tm.ticks ................ Pops A (a <~time> instance) and pushes its Ticks value as an <i64> value
+tm.tmin ................. Pops A (a <~time> instance) and pushes its TotalMinutes value as an <f64> value
+tm.tmsec ................ Pops A (a <~time> instance) and pushes its TotalMilliseconds value as an <f64> value
+tm.tsec ................. Pops A (a <~time> instance) and pushes its TotalSeconds value as an <f64> value
 type .................... Pops A, then pushes a <str> representing its type
 
 wait .................... Pops A (an <i32>) then waits for that many milliseconds
@@ -255,6 +283,7 @@ $dteph .................. System.DateTime.UnixEpoch as a <~date> instance
 $f.c .................... The Carry flag
 $f.n .................... The Conversion flag
 $f.o .................... The Comparison flag
+$f.r .................... The RegexSuccessful flag
 
 $head ................... The index of the topmost element on the stack.  This register is read-only
 

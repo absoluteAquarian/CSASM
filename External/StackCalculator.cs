@@ -1,4 +1,5 @@
 ﻿using dnlib.DotNet.Emit;
+using System;
 using System.Collections.Generic;
 
 namespace CSASM.External{
@@ -9,7 +10,7 @@ namespace CSASM.External{
 	public struct StackCalculator{
 		IList<Instruction> instructions;
 		IList<ExceptionHandler> exceptionHandlers;
-		readonly Dictionary<Instruction, int> stackHeights;
+		public readonly Dictionary<Instruction, int> stackHeights;
 		bool hasError;
 		int currentMaxStack;
 
@@ -30,7 +31,7 @@ namespace CSASM.External{
 		/// <param name="instructions">All instructions</param>
 		/// <param name="exceptionHandlers">All exception handlers</param>
 		/// <param name="maxStack">Updated with max stack value</param>
-		/// <returns><c>true</c> ifno errors were detected, <c>false</c> otherwise</returns>
+		/// <returns><c>true</c> if no errors were detected, <c>false</c> otherwise</returns>
 		public static bool GetMaxStack(IList<Instruction> instructions, IList<ExceptionHandler> exceptionHandlers, out uint maxStack) =>
 			new StackCalculator(instructions, exceptionHandlers).Calculate(out maxStack);
 
@@ -44,7 +45,7 @@ namespace CSASM.External{
 			currentMaxStack = 0;
 		}
 
-		StackCalculator(IList<Instruction> instructions, IList<ExceptionHandler> exceptionHandlers){
+		public StackCalculator(IList<Instruction> instructions, IList<ExceptionHandler> exceptionHandlers){
 			this.instructions = instructions;
 			this.exceptionHandlers = exceptionHandlers;
 			stackHeights = new Dictionary<Instruction, int>();
@@ -157,8 +158,19 @@ namespace CSASM.External{
 			}
 			var stackHeights = this.stackHeights;
 			if(stackHeights.TryGetValue(instr, out int stack2)){
-				if(stack != stack2)
+				if(stack != stack2){
 					hasError = true;
+
+					if(AsmCompiler.ReportingILMethod){
+						Utility.ConsoleWriteLine("Mismatching stack heights for instruction." +
+							"\n\tInstruction" +
+							$"\n\t\t{AsmCompiler.GetInstructionRepresentation(instr)}" +
+							"\n\tStack Heights" +
+							$"\n\t\tExisting: {stack2}" +
+							$"\n\t\tNew: {stack}",
+							ConsoleColor.Yellow);
+					}
+				}
 				return stack2;
 			}
 			stackHeights[instr] = stack;

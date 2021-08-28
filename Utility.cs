@@ -40,6 +40,8 @@ namespace CSASM{
 				return "~range";
 			if(type == typeof(CSASMList))
 				return "~list";
+			if(type == typeof(CSASMRegex))
+				return "~regex";
 
 			return "object";
 		}
@@ -55,7 +57,10 @@ namespace CSASM{
 				|| type == "~arr"
 				|| type == "~set"
 				|| type == "~range"
-				|| type == "~list";
+				|| type == "~list"
+				|| type == "~date"
+				|| type == "~time"
+				|| type == "~regex";
 
 		public static Type GetCsharpType(string asmType)
 			=> asmType switch{
@@ -76,6 +81,9 @@ namespace CSASM{
 				"~set" => typeof(ArithmeticSet),
 				"~range" => typeof(CSASMRange),
 				"~list" => typeof(CSASMList),
+				"~date" => typeof(DateTimeRef),
+				"~time" => typeof(TimeSpanRef),
+				"~regex" => typeof(CSASMRegex),
 				null => throw new ArgumentNullException(nameof(asmType)),
 				_ when asmType.StartsWith("~arr:") => Array.CreateInstance(GetCsharpType(asmType["~arr:".Length..]), 0).GetType(),
 				_ => throw new CompileException($"Type \"{asmType}\" did not correlate to a valid CSASM type")

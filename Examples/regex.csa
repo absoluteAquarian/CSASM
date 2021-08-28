@@ -1,0 +1,70 @@
+﻿.asm_name RegexTest
+.stack 100
+
+; This file showcases the <~regex> type
+
+func main:
+	; Example ported from https://www.c-sharpcorner.com/article/c-sharp-regex-examples/ to CSASM
+	
+	.local authors : str
+	push "Mahesh Chand, Raj Kumar, Mike Gold, Allen O'Neill, Marshal Troll"
+	pop authors
+
+	.local rg : ~regex
+	push "\\b[M]\\w+"
+	rgxnew
+	pop rg
+
+	; Clear the "regex successful" flag
+	clf.r
+	
+	; Get the matches
+	push rg
+	push authors
+	rgxmt
+
+	; If no matches were found, print that and return
+	push $f.r
+	brtrue hasMatch
+
+	push "No matches found"
+	print.n
+	ret
+.lbl hasMatch
+	push "Matches found:"
+	print.n
+
+	; Initialize the loop
+	.local matchCount : i32
+	.local matchIter : i32
+
+	push rg
+	len
+	pop matchCount
+
+	lda 0
+	sta matchIter
+
+	.lbl matchLoop
+		; If matchIter == matchCount, stop looping
+		clf.o
+
+		push matchIter
+		push matchCount
+		comp
+
+		push $f.o
+
+		brtrue loopEnd
+
+		; Get the match by index and print it
+		push rg
+		rgxms matchIter
+		print.n
+
+		inc matchIter
+
+		br matchLoop
+.lbl loopEnd
+	ret
+end

@@ -227,6 +227,8 @@ namespace CSASM{
 			List<string> strs = new List<string>();
 			char[] letters = orig.ToCharArray();
 			bool inString = false;
+			//~arr:str constants can have multiple strings in them... account for this
+			bool inPossibleArrConst = false;
 
 			for(int c = 0; c < letters.Length; c++){
 				char letter = letters[c];
@@ -236,7 +238,11 @@ namespace CSASM{
 					sb.Append(letters[c + 1]);
 					//Skip the next letter since it was already used
 					c++;
-				}else if(letter == '"'){
+				}else if(letter == '[' && !inString)
+					inPossibleArrConst = true;
+				else if(letter == ']' && !inString)
+					inPossibleArrConst = false;
+				else if(letter == '"' && !inPossibleArrConst){
 					if(inString){
 						strs.Add("\"" + sb.ToString() + "\"");
 						sb.Clear();

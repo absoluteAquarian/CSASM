@@ -1,4 +1,5 @@
 ﻿using CSASM.Core;
+using CSASM.External;
 using dnlib.DotNet;
 using dnlib.DotNet.Emit;
 using System;
@@ -27,24 +28,29 @@ namespace CSASM{
 		public static bool foundMainFunc = false;
 
 		public static bool reportTranspiledCode = false;
-		public static bool nestCompiledFiles = false;
+		public static bool nestCompiledFiles = true;
+		public static bool reportMethodSearch = false;
 
 		public static string forceOutput;
 
 		public const string FileType = ".dll";
+		private const string DefaultOutFileArgumentDescription = "Name of input file, extension renamed to '" + FileType + "'.";
 
 		public static string ExeDirectory{ get; private set; }
 
 		private static RootCommand command;
 		private static string[] commandArgs;
 
+		static Option<string> outFileOption;
+
 		public static int Main(string[] args){
 			commandArgs = args;
 
 			command = new RootCommand(){
-				new Option<string>("--outfile", () => $"Name of input file, extension renamed to '{FileType}'.", "(Optional) The destination file"),
+				(outFileOption = new Option<string>("--outfile", () => null, "(Optional) The destination file")),
 				new Option<bool>("--report", () => false, "(Optional) Whether the compilation process is logged to the console"),
-				new Option<bool>("--nestdir", () => true, "(Optional) Whether the compiled file should be in its own nested directory")
+				new Option<bool>("--nestdir", () => true, "(Optional) Whether the compiled file should be in its own nested directory"),
+				new Option<bool>("--reportm", () => false, "(Optional) Whether the compilation process logs found methods. Only applied if \"--report\" is also used")
 			};
 
 			command.Description = "The CSASM Compiler";
@@ -53,18 +59,19 @@ namespace CSASM{
 
 			string inFile = args.Length >= 1 ? args[0] : null;
 
-			command.Handler = CommandHandler.Create<string, bool, bool>((outFile, report, nestDir) => {
+			command.Handler = CommandHandler.Create<string, bool, bool, bool>((outFile, report, nestDir, reportMethods) => {
 				try{
-					return CommandMain(inFile, outFile, report, nestDir);
+					return CommandMain(inFile, outFile, report, nestDir, reportMethods);
 				}catch(Exception ex){
 					if(ex is CompileException && !reportTranspiledCode){
-						Console.WriteLine(ex.Message);
+						Utility.ConsoleWriteLine(ex.Message, ConsoleColor.Red);
 
 						return -1;
 					}else if(ex is dnlib.DotNet.Writer.ModuleWriterException && ex.Message.StartsWith("Error calculating max stack value")){
-						Console.WriteLine("" +
+						Utility.ConsoleWriteLine("" +
 							"\nAn error occured while calculating the evaluation stack for the compiling CSASM program." +
-							"\nDouble check that any pops/pushes that occur, as documented in \"docs.txt\" and \"syntax.txt\", are in the correct order.");
+							"\nDouble check that any pops/pushes that occur, as documented in \"syntax.txt\", are in the correct order.",
+							ConsoleColor.Red);
 
 						if(!reportTranspiledCode)
 							return -1;
@@ -86,7 +93,7 @@ namespace CSASM{
 					StringBuilder sb = new StringBuilder(300);
 					foreach(string line in lines)
 						sb.AppendLine(line);
-					Console.WriteLine(sb.ToString());
+					Utility.ConsoleWriteLine(sb.ToString(), ConsoleColor.Red);
 					return -1;
 				}
 			});
@@ -101,11 +108,16 @@ namespace CSASM{
 		/// <param name="outFile">(Optional) The destination file</param>
 		/// <param name="report">(Optional) Whether the compilation process is logged to the console</param>
 		/// <param name="nestedDirectory">(Optional) Whether the compiled file should be in its own nested directory</param>
-		private static int CommandMain(string inFile, string outFile = null, bool report = false, bool nestedDirectory = false){
+		/// <param name="reportMethods">(Optional) Whether the compilation process logs found methods. Only applied if <paramref name="report"/> is also used</param>
+		private static int CommandMain(string inFile, string outFile = null, bool report = false, bool nestedDirectory = true, bool reportMethods = false){
+			if(string.IsNullOrEmpty(outFile))
+				outFile = null;
+
 			ExeDirectory = Directory.GetParent(System.Reflection.Assembly.GetEntryAssembly().Location).FullName;
 
 			reportTranspiledCode = report;
 			nestCompiledFiles = nestedDirectory;
+			reportMethodSearch = reportTranspiledCode && reportMethods;
 
 			return Compile(inFile, outFile);
 		}
@@ -131,7 +143,7 @@ namespace CSASM{
 
 					Console.WriteLine($"  --{option.Name,-optionHelpBuffer} {option.Description}");
 					if(argument.HasDefaultValue)
-						Console.WriteLine($"     {space}Default value: {argument.GetDefaultValue() ?? "null"}");
+						Console.WriteLine($"     {space}Default value: {(object.ReferenceEquals(option, outFileOption) ? DefaultOutFileArgumentDescription : argument.GetDefaultValue()) ?? "null"}");
 
 					Console.WriteLine();
 				}
@@ -142,7 +154,7 @@ namespace CSASM{
 			forceOutput = outFile;
 
 			if(forceOutput is not null && Path.GetExtension(forceOutput) != FileType)
-				throw new ArgumentException($"Output file was invalid (must have the '{FileType}' extension)");
+				throw new ArgumentException($"Output file was invalid (must have the '{FileType}' extension): \"{forceOutput ?? "null"}\"");
 
 			string path = Utility.IgnoreFile ? "" : inFile;
 			//Debug lines for VS Edit-and-Continue
@@ -184,6 +196,8 @@ namespace CSASM{
 			return 0;
 		}
 
+		internal static bool ReportingILMethod{ get; private set; } = false;
+
 		private static void ReportILMethod(string sourcePath, MethodDef method){
 			//Perform optimizations
 			//Instruction offsets are automatically determined during this process
@@ -194,11 +208,19 @@ namespace CSASM{
 			//Optimize branch instructions
 			//  e.g. convert Instruction operands to the short variant
 			method.Body.OptimizeBranches();
+
+			ReportingILMethod = true;
+
+			StackCalculator stack = new StackCalculator(method.Body.Instructions, method.Body.ExceptionHandlers);
+			bool success = stack.Calculate(out uint total);
 			
 			StringBuilder sb = new StringBuilder(10);
 			sb.Append('\t');
 
 			using StreamWriter writer = new StreamWriter(File.Open(sourcePath, FileMode.Create));
+			if(!success)
+				writer.WriteLine($"[ERROR] BAD STACK EVALUATION (Too many {(total > 0 ? "pushes" : "pops")})\n");
+
 			writer.WriteLine($"IL Function \"{method.Name}\"");
 			writer.WriteLine();
 			writer.WriteLine("Signature:");
@@ -225,6 +247,7 @@ namespace CSASM{
 				writer.WriteLine("Operands: none");
 			writer.WriteLine();
 			writer.WriteLine("Body:");
+
 			foreach(var instr in method.Body.Instructions){
 				//Check for exception blocks
 				for(int i = 0; i < method.Body.ExceptionHandlers.Count; i++){
@@ -253,11 +276,13 @@ namespace CSASM{
 					}
 				}
 
-				writer.WriteLine($"{sb}{GetInstructionRepresentation(instr)}");
+				writer.WriteLine($"{stack.stackHeights[instr]}{sb}{GetInstructionRepresentation(instr)}");
 			}
+
+			ReportingILMethod = false;
 		}
 
-		private static string GetInstructionRepresentation(Instruction instr)
+		public static string GetInstructionRepresentation(Instruction instr)
 			=> $"IL_{instr.Offset :X4}:  {instr.OpCode.Name,-16}{GetInstructionOperand(instr)}";
 
 		private static string GetInstructionOperand(Instruction instr)
@@ -336,9 +361,15 @@ namespace CSASM{
 					
 					bool success = EvaluateStack(method, out uint total);
 
-					if(!reportTranspiledCode && !success)
-						throw new CompileException($"Error on calculating evaluation stack for function \"{method.Name.Replace("func_", "")}\":" +
-							$"\n   Reason: Too many {(total > 0 ? "pushes" : "pops")}");
+					if(!success){
+						string errStr = $"Error on calculating evaluation stack for function \"{method.Name.Replace("func_", "")}\":" +
+							$"\n   Reason: Too many {(total > 0 ? "pushes" : "pops")}";
+
+						if(!reportTranspiledCode)
+							throw new CompileException(errStr);
+						else
+							Utility.ConsoleWriteLine(errStr, ConsoleColor.Red);
+					}
 
 					if(reportTranspiledCode){
 						Console.WriteLine($"Writing file \"{file[folder.LastIndexOf(type.Name)..]}\"...");
@@ -549,8 +580,8 @@ namespace CSASM{
 			File.Copy("CSASM.Core.dll", Path.Combine(asmDir, "CSASM.Core.dll"), overwrite: true);
 		}
 
-		static IMethod csasmStack_Push, csasmStack_Pop;
-		static IMethod ops_get_Carry, ops_set_Carry, ops_get_Comparison, ops_set_Comparison, ops_get_Conversion, ops_set_Conversion, ops_get_SP, ops_set_SP, ops_get_Head, ops_get_DateTimeNow;
+		static IMethod csasmStack_Push, csasmStack_Pop, csasmStack_PushIndirect, csasmStack_PopIndirect;
+		static IMethod ops_get_Carry, ops_set_Carry, ops_get_Comparison, ops_set_Comparison, ops_get_Conversion, ops_set_Conversion, ops_get_RegexSuccess, ops_set_RegexSuccess, ops_get_SP, ops_set_SP, ops_get_Head, ops_get_DateTimeNow;
 		static IField ops_stack, ops_reg_a, ops_reg_1, ops_reg_2, ops_reg_3, ops_reg_4, ops_reg_5, ops_args, ops_DateTimeEpoch;
 		static ITypeDefOrRef prim_sbyte, prim_byte, prim_short, prim_ushort, prim_int, prim_uint, prim_long, prim_ulong, prim_float, prim_double;
 		static IMethod prim_sbyte_ctor, prim_byte_ctor, prim_short_ctor, prim_ushort_ctor, prim_int_ctor, prim_uint_ctor, prim_long_ctor, prim_ulong_ctor, prim_float_ctor, prim_double_ctor;
@@ -564,11 +595,11 @@ namespace CSASM{
 		static ITypeDefOrRef csasmList;
 		static IMethod csasmList_ctor, csasmList_ctor_int;
 		static ITypeDefOrRef dateTimeRef;
-		static IMethod dateTimeRef_ctor, dateTimeRef_ctor_int_int_int, dateTimeRef_ctor_int_int_int_int_int_int, dateTimeRef_ctor_int_int_int_int_int_int_int, dateTimeRef_ctor_DateTime, dateTimeRef_ctor_long;
 		static IMethod console_get_BackgroundColor, console_set_BackgroundColor, console_get_BufferHeight, console_set_BufferHeight, console_get_BufferWidth, console_set_BufferWidth,
 			console_get_CapsLock, console_get_CursorLeft, console_set_CursorLeft, console_get_CursorTop, console_set_CursorTop, console_get_ForegroundColor, console_set_ForegroundColor,
 			console_get_Title, console_set_Title, console_get_WindowHeight, console_set_WindowHeight, console_get_WindowWidth, console_set_WindowWidth, console_WriteLine_string;
 		static IField arithmeticset_emptySet;
+		static ITypeDefOrRef csasmRegex;
 		static IMethod core_Utility_deepCloneArray;
 
 		static IMethod exception_toString;
@@ -587,22 +618,22 @@ namespace CSASM{
 			ImportMethod<Type>(mod, "GetMethod", new Type[]{ typeof(string), typeof(Type[]) }, out _, out IMethod type_GetMethod);
 			ImportStaticField(mod, typeof(Type), "EmptyTypes", out IField type_EmptyTypes);
 
-			if(reportTranspiledCode)
+			if(reportMethodSearch)
 				Console.WriteLine();
 
 			ImportMethod<Exception>(mod, "ToString", null, out _, out exception_toString);
 
-			if(reportTranspiledCode)
+			if(reportMethodSearch)
 				Console.WriteLine();
 
 			ImportStaticMethod(mod, typeof(Environment), "Exit", new Type[]{ typeof(int) }, out environment_Exit);
 
-			if(reportTranspiledCode)
+			if(reportMethodSearch)
 				Console.WriteLine();
 
 			ImportStaticMethod(mod, typeof(CSASM.Core.Utility), "DeepCloneArray", new Type[]{ typeof(Array) }, out core_Utility_deepCloneArray);
 
-			if(reportTranspiledCode)
+			if(reportMethodSearch)
 				Console.WriteLine();
 
 			//Get references to Console properties
@@ -630,14 +661,16 @@ namespace CSASM{
 			//Get a string[] reference
 			string_array_ref = importer.Import(typeof(string[])).ToTypeSig().ToSZArraySig();
 
-			if(reportTranspiledCode)
+			if(reportMethodSearch)
 				Console.WriteLine();
 
 			//Import references from CSASM.Core
-			ImportMethod<CSASMStack>(mod, "Push", new Type[]{ typeof(object) }, out _, out csasmStack_Push);
-			ImportMethod<CSASMStack>(mod, "Pop",  null,                         out _, out csasmStack_Pop);
+			ImportMethod<CSASMStack>(mod, "Push",         new Type[]{ typeof(object) },              out _, out csasmStack_Push);
+			ImportMethod<CSASMStack>(mod, "Pop",          null,                                      out _, out csasmStack_Pop);
+			ImportMethod<CSASMStack>(mod, "PushIndirect", new Type[]{ typeof(object), typeof(int) }, out _, out csasmStack_PushIndirect);
+			ImportMethod<CSASMStack>(mod, "PopIndirect", new Type[]{ typeof(int) },                  out _, out csasmStack_PopIndirect);
 
-			if(reportTranspiledCode)
+			if(reportMethodSearch)
 				Console.WriteLine();
 			
 			ImportStaticField(mod, typeof(Ops), "stack", out ops_stack);
@@ -647,12 +680,14 @@ namespace CSASM{
 			ImportStaticField(mod, typeof(Ops), "_reg_3", out ops_reg_3);
 			ImportStaticField(mod, typeof(Ops), "_reg_4", out ops_reg_4);
 			ImportStaticField(mod, typeof(Ops), "_reg_5", out ops_reg_5);
-			ImportStaticMethod(mod, typeof(Ops), "get_Carry",      null,                       out ops_get_Carry);
-			ImportStaticMethod(mod, typeof(Ops), "set_Carry",      new Type[]{ typeof(bool) }, out ops_set_Carry);
-			ImportStaticMethod(mod, typeof(Ops), "get_Comparison", null,                       out ops_get_Comparison);
-			ImportStaticMethod(mod, typeof(Ops), "set_Comparison", new Type[]{ typeof(bool) }, out ops_set_Comparison);
-			ImportStaticMethod(mod, typeof(Ops), "get_Conversion", null,                       out ops_get_Conversion);
-			ImportStaticMethod(mod, typeof(Ops), "set_Conversion", new Type[]{ typeof(bool) }, out ops_set_Conversion);
+			ImportStaticMethod(mod, typeof(Ops), "get_Carry",        null,                       out ops_get_Carry);
+			ImportStaticMethod(mod, typeof(Ops), "set_Carry",        new Type[]{ typeof(bool) }, out ops_set_Carry);
+			ImportStaticMethod(mod, typeof(Ops), "get_Comparison",   null,                       out ops_get_Comparison);
+			ImportStaticMethod(mod, typeof(Ops), "set_Comparison",   new Type[]{ typeof(bool) }, out ops_set_Comparison);
+			ImportStaticMethod(mod, typeof(Ops), "get_Conversion",   null,                       out ops_get_Conversion);
+			ImportStaticMethod(mod, typeof(Ops), "set_Conversion",   new Type[]{ typeof(bool) }, out ops_set_Conversion);
+			ImportStaticMethod(mod, typeof(Ops), "get_RegexSuccess", null,                       out ops_get_RegexSuccess);
+			ImportStaticMethod(mod, typeof(Ops), "set_RegexSuccess", new Type[]{ typeof(bool) }, out ops_set_RegexSuccess);
 			ImportStaticField(mod, typeof(Ops), "args", out ops_args);
 			ImportStaticMethod(mod, typeof(Ops), "get_SP", null, out ops_get_SP);
 			ImportStaticMethod(mod, typeof(Ops), "set_SP", new Type[]{ typeof(int) }, out ops_set_SP);
@@ -660,12 +695,12 @@ namespace CSASM{
 			ImportStaticMethod(mod, typeof(Ops), "get_DateTimeNow", null, out ops_get_DateTimeNow);
 			ImportStaticField(mod, typeof(Ops), "DateTimeEpoch", out ops_DateTimeEpoch);
 
-			if(reportTranspiledCode)
+			if(reportMethodSearch)
 				Console.WriteLine();
 
 			ImportStaticMethod(mod, typeof(Sandbox), "Main", new Type[]{ typeof(System.Reflection.MethodInfo), typeof(int), typeof(string[]) }, out IMethod main);
 
-			if(reportTranspiledCode)
+			if(reportMethodSearch)
 				Console.WriteLine();
 
 			ImportMethod<SbytePrimitive>(mod,  ".ctor", new Type[]{ typeof(int) },    out prim_sbyte,  out prim_sbyte_ctor);
@@ -679,46 +714,39 @@ namespace CSASM{
 			ImportMethod<FloatPrimitive>(mod,  ".ctor", new Type[]{ typeof(float) },  out prim_float,  out prim_float_ctor);
 			ImportMethod<DoublePrimitive>(mod, ".ctor", new Type[]{ typeof(double) }, out prim_double, out prim_double_ctor);
 
-			if(reportTranspiledCode)
+			if(reportMethodSearch)
 				Console.WriteLine();
 
 			ImportMethod<IPrimitive>(mod, "get_Value", null, out _, out iprimitive_get_Value);
 			ImportMethod<CSASMIndexer>(mod, ".ctor", new Type[]{ typeof(uint) }, out indexer, out indexer_ctor);
 
-			if(reportTranspiledCode)
+			if(reportMethodSearch)
 				Console.WriteLine();
 
 			ImportMethod<CSASMRange>(mod, ".ctor", new Type[]{ typeof(int), typeof(int) },          out range, out range_ctor_int_int);
 			ImportMethod<CSASMRange>(mod, ".ctor", new Type[]{ typeof(int), typeof(CSASMIndexer) }, out _,     out range_ctor_int_indexer);
 			ImportMethod<CSASMRange>(mod, ".ctor", new Type[]{ typeof(int), typeof(CSASMIndexer) }, out _,     out range_ctor_indexer_indexer);
 
-			if(reportTranspiledCode)
+			if(reportMethodSearch)
 				Console.WriteLine();
 
 			ImportMethod<ArithmeticSet>(mod, ".ctor", new Type[]{ typeof(Array) },      out arithmeticset, out arithmeticset_ctor_array);
 			ImportMethod<ArithmeticSet>(mod, ".ctor", new Type[]{ typeof(CSASMRange) }, out _,             out arithmeticset_ctor_range);
 			ImportField<ArithmeticSet>(mod, "EmptySet", out _, out arithmeticset_emptySet);
 
-			if(reportTranspiledCode)
+			if(reportMethodSearch)
 				Console.WriteLine();
 
 			ImportMethod<CSASMList>(mod, ".ctor", Type.EmptyTypes,           out csasmList, out csasmList_ctor);
 			ImportMethod<CSASMList>(mod, ".ctor", new Type[]{ typeof(int) }, out _,         out csasmList_ctor_int);
 
-			if(reportTranspiledCode)
+			if(reportMethodSearch)
 				Console.WriteLine();
 
-			ImportMethod<DateTimeRef>(mod, ".ctor", Type.EmptyTypes,                                     out dateTimeRef, out dateTimeRef_ctor);
-			ImportMethod<DateTimeRef>(mod, ".ctor", new Type[]{ typeof(int), typeof(int), typeof(int) }, out _,           out dateTimeRef_ctor_int_int_int);
-			ImportMethod<DateTimeRef>(mod, ".ctor", new Type[]{ typeof(int), typeof(int), typeof(int),
-			                                                    typeof(int), typeof(int), typeof(int) }, out _,           out dateTimeRef_ctor_int_int_int_int_int_int);
-			ImportMethod<DateTimeRef>(mod, ".ctor", new Type[]{ typeof(int), typeof(int), typeof(int),
-			                                                    typeof(int), typeof(int), typeof(int),
-			                                                    typeof(int) },                           out _,           out dateTimeRef_ctor_int_int_int_int_int_int_int);
-			ImportMethod<DateTimeRef>(mod, ".ctor", new Type[]{ typeof(DateTime) },                      out _,           out dateTimeRef_ctor_DateTime);
-			ImportMethod<DateTimeRef>(mod, ".ctor", new Type[]{ typeof(long) },                          out _,           out dateTimeRef_ctor_long);
+			dateTimeRef = importer.ImportAsTypeSig(typeof(DateTimeRef)).ToTypeDefOrRef();
+			csasmRegex = importer.ImportAsTypeSig(typeof(CSASMRegex)).ToTypeDefOrRef();
 
-			if(reportTranspiledCode)
+			if(reportMethodSearch)
 				Console.WriteLine();
 			
 			CilBody body;
@@ -1245,7 +1273,7 @@ namespace CSASM{
 				? importer.Import(typeof(T).GetConstructor(methodParams ?? Type.EmptyTypes))
 				: importer.Import(typeof(T).GetMethod(methodName, methodParams ?? Type.EmptyTypes));
 
-			if(reportTranspiledCode){
+			if(reportMethodSearch){
 				if(method != null)
 					Console.WriteLine($"Found method \"{method.FullName}\" in type \"{typeof(T).FullName}\"");
 				else
@@ -1258,7 +1286,7 @@ namespace CSASM{
 			type = importer.ImportAsTypeSig(typeof(T)).ToTypeDefOrRef();
 			field = importer.Import(typeof(T).GetField(fieldName));
 
-			if(reportTranspiledCode){
+			if(reportMethodSearch){
 				if(field != null)
 					Console.WriteLine($"Found field \"{field.FullName}\" in type \"{typeof(T).FullName}\"");
 				else
@@ -1270,7 +1298,7 @@ namespace CSASM{
 			Importer importer = new Importer(mod, ImporterOptions.TryToUseDefs);
 			method = importer.Import(type.GetMethod(methodName, methodParams ?? Type.EmptyTypes));
 
-			if(reportTranspiledCode){
+			if(reportMethodSearch){
 				if(method != null)
 					Console.WriteLine($"Found method \"{method.FullName}\" in type \"{type.FullName}\"");
 				else
@@ -1282,7 +1310,7 @@ namespace CSASM{
 			Importer importer = new Importer(mod, ImporterOptions.TryToUseDefs);
 			field = importer.Import(type.GetField(fieldName));
 
-			if(reportTranspiledCode){
+			if(reportMethodSearch){
 				if(field != null)
 					Console.WriteLine($"Found field \"{field.FullName}\" in type \"{type.FullName}\"");
 				else
@@ -1325,8 +1353,9 @@ namespace CSASM{
 				"^<u32>" => importer.ImportAsTypeSig(typeof(CSASMIndexer)),
 				"~set" => importer.ImportAsTypeSig(typeof(ArithmeticSet)),
 				"~range" => importer.ImportAsTypeSig(typeof(CSASMRange)),
-				"~list" => importer.ImportAsTypeSig(typeof(CSASMList)),
 				"~date" => importer.ImportAsTypeSig(typeof(DateTimeRef)),
+				"~time" => importer.ImportAsTypeSig(typeof(TimeSpanRef)),
+				"~regex" => importer.ImportAsTypeSig(typeof(CSASMRegex)),
 				null => throw new CompileException(line: line, "Type string was null"),
 				_ => throw new CompileException(line: line, $"Unknown type: {type}")
 			};
@@ -1344,6 +1373,7 @@ namespace CSASM{
 			"$f.c",
 			"$f.n",
 			"$f.o",
+			"$f.r",
 			
 			"$con.bcol",
 			"$con.bh",
@@ -1719,6 +1749,7 @@ namespace CSASM{
 					"$f.c" => OpCodes.Call.ToInstruction(ops_get_Carry),
 					"$f.n" => OpCodes.Call.ToInstruction(ops_get_Conversion),
 					"$f.o" => OpCodes.Call.ToInstruction(ops_get_Comparison),
+					"$f.r" => OpCodes.Call.ToInstruction(ops_get_RegexSuccess),
 					"$con.bcol" => OpCodes.Call.ToInstruction(console_get_BackgroundColor),
 					"$con.bh" => OpCodes.Call.ToInstruction(console_get_BufferHeight),
 					"$con.bw" => OpCodes.Call.ToInstruction(console_get_BufferWidth),
@@ -1734,7 +1765,7 @@ namespace CSASM{
 					_ => throw new CompileException(token: token, "Invalid register name")
 				});
 
-				if(argToken == "$f.c" || argToken == "$f.n" || argToken == "$f.o" || argToken == "$con.caps")
+				if(argToken == "$f.c" || argToken == "$f.n" || argToken == "$f.o" || argToken == "$con.caps" || argToken == "$f.r")
 					body.Instructions.Add(OpCodes.Box.ToInstruction(mod.CorLibTypes.Boolean));
 				else if(argToken.StartsWith("$con.") && argToken != "$con.ttl"){
 					body.Instructions.Add(OpCodes.Newobj.ToInstruction(prim_int_ctor));
@@ -1786,6 +1817,7 @@ namespace CSASM{
 						"$f.c" => throw new CompileException(token: token, $"Carry flag register cannot be used with the \"{instruction}\" instruction"),
 						"$f.n" => throw new CompileException(token: token, $"Conversion flag register cannot be used with the \"{instruction}\" instruction"),
 						"$f.o" => throw new CompileException(token: token, $"Comparison flag register cannot be used with the \"{instruction}\" instruction"),
+						"$f.r" => throw new CompileException(token: token, $"RegexSuccessful flag register cannot be used with the \"{instruction}\" instruction"),
 						"$args" => ops_args,
 						"$as.e" => arithmeticset_emptySet,
 						_ => throw new CompileException(token: token, "Invalid register name")
@@ -1847,6 +1879,7 @@ namespace CSASM{
 						"$f.c" => throw new CompileException(token: token, "Carry flag should be set/cleared using the \"clf.c\" and \"stf.c\" instructions"),
 						"$f.n" => throw new CompileException(token: token, "Conversion flag should be set/cleared using the \"clf.n\" and \"stf.n\" instructions"),
 						"$f.o" => throw new CompileException(token: token, "Comparison flag should be set/cleared using the \"clf.o\" and \"stf.o\" instructions"),
+						"$f.r" => throw new CompileException(token: token, "RegexSuccesful flag should be set/cleared using the \"clf.r\" and \"stf.r\" instructions"),
 						"$args" => OpCodes.Stsfld.ToInstruction(ops_args),
 						"$as.e" => throw new CompileException(token: token, "Cannot modify the EmptySet global"),
 						"$head" => throw new CompileException(token: token, "Cannot modify $head register"),
@@ -1964,6 +1997,10 @@ namespace CSASM{
 				case "clf.o":
 					body.Instructions.Add(OpCodes.Ldc_I4_0.ToInstruction());
 					body.Instructions.Add(OpCodes.Call.ToInstruction(ops_set_Comparison));
+					break;
+				case "clf.r":
+					body.Instructions.Add(OpCodes.Ldc_I4_0.ToInstruction());
+					body.Instructions.Add(OpCodes.Call.ToInstruction(ops_set_RegexSuccess));
 					break;
 				case "conv":
 					if(registerArg)
@@ -2149,8 +2186,6 @@ namespace CSASM{
 					if(arrType.GetElementType()?.IsArray ?? false)
 						throw new CompileException(token: token, "Arrays of arrays is currently not a supported feature of CSASM");
 
-					body.Instructions.Add(OpCodes.Ldsfld.ToInstruction(ops_stack));
-
 					instr.token = "pop";
 					arg.token = null;
 					
@@ -2198,6 +2233,21 @@ namespace CSASM{
 					break;
 				case "ret":
 					body.Instructions.Add(OpCodes.Ret.ToInstruction());
+					break;
+				case "rgxms":
+					//Need to figure out what kind of object is going to be pushed to the stack
+					if(!registerArg){
+						LdNonRegister();
+					}else if(argToken != null){
+						//Argument is a register
+						LdRegisterNoFlags("rgxms");
+					}
+
+					ConvIntPrimToInt32();
+					
+					method = GetOpsMethod(mod, "func_rgxms", new Type[]{ typeof(int) });
+
+					body.Instructions.Add(OpCodes.Call.ToInstruction(method));
 					break;
 				case "sta":
 					//Storing the accumulator to itself is pointless, so this can be optimized away
@@ -2248,16 +2298,20 @@ namespace CSASM{
 					body.Instructions.Add(OpCodes.Call.ToInstruction(method));
 					break;
 				case "stf.c":
-					body.Instructions.Add(OpCodes.Ldc_I4_0.ToInstruction());
+					body.Instructions.Add(OpCodes.Ldc_I4_1.ToInstruction());
 					body.Instructions.Add(OpCodes.Call.ToInstruction(ops_set_Carry));
 					break;
 				case "stf.n":
-					body.Instructions.Add(OpCodes.Ldc_I4_0.ToInstruction());
+					body.Instructions.Add(OpCodes.Ldc_I4_1.ToInstruction());
 					body.Instructions.Add(OpCodes.Call.ToInstruction(ops_set_Conversion));
 					break;
 				case "stf.o":
-					body.Instructions.Add(OpCodes.Ldc_I4_0.ToInstruction());
+					body.Instructions.Add(OpCodes.Ldc_I4_1.ToInstruction());
 					body.Instructions.Add(OpCodes.Call.ToInstruction(ops_set_Comparison));
+					break;
+				case "stf.r":
+					body.Instructions.Add(OpCodes.Ldc_I4_1.ToInstruction());
+					body.Instructions.Add(OpCodes.Call.ToInstruction(ops_set_RegexSuccess));
 					break;
 				case "throw":
 					local = !registerArg ? TryGetLocal(body.Variables, argToken) : null;
@@ -2431,6 +2485,7 @@ namespace CSASM{
 			
 			char last = token.Length > 1 ? token[^1] : '\0';
 			char nextLast = token.Length > 2 ? token[^2] : '\0';
+			bool wasHexOrBinary = false;
 			if((last  == 'u' || last == 'U') && uint.TryParse(token.Remove(token.Length - 1), out uint u)){
 				//Number is an unsigned 32bit integer
 				value = u;
@@ -2453,15 +2508,43 @@ namespace CSASM{
 				string intermediate = token.Replace("'", "");
 				value = Unescape(intermediate);
 				return typeof(char);
-			}else if(int.TryParse(token, out int i)  //It's an integer
-			|| (token.StartsWith("0x") && int.TryParse(token.Remove(0, 2), NumberStyles.AllowHexSpecifier, CultureInfo.CurrentCulture.NumberFormat, out i))  //It's a hexadecimal value
-			|| (token.StartsWith("0b") && BinaryRegex.IsMatch(token.Remove(0, 2)))){  //It's a binary number
-				if(token.StartsWith("0b"))
-					value = Convert.ToInt32(token.Remove(0, 2), 2);
-				else
+			}else if(ulong.TryParse(token, out ulong i)  //It's an integer
+			|| ((token.StartsWith("0x") && ulong.TryParse(token.Remove(0, 2), NumberStyles.AllowHexSpecifier, CultureInfo.CurrentCulture.NumberFormat, out i) && (wasHexOrBinary = true)))  //It's a hexadecimal value
+			|| (token.StartsWith("0b") && BinaryRegex.IsMatch(token.Remove(0, 2)) && (wasHexOrBinary = true))){  //It's a binary number
+				if(token.StartsWith("0b")){
+					value = Convert.ToUInt64(token.Remove(0, 2), 2);
+					wasHexOrBinary = true;
+				}else
 					value = i;
 
-				return typeof(int);
+				ulong check = (ulong)value;
+				if(wasHexOrBinary){
+					if(check <= byte.MaxValue){
+						value = (byte)check;
+						return typeof(byte);
+					}else if(check <= ushort.MaxValue){
+						value = (ushort)check;
+						return typeof(ushort);
+					}else if(check <= uint.MaxValue){
+						value = (uint)check;
+						return typeof(uint);
+					}
+
+					return typeof(ulong);
+				}
+
+				if(int.MinValue <= (long)check && check <= int.MaxValue){
+					value = (int)check;
+					return typeof(int);
+				}else if(check >= 0 && check <= uint.MaxValue){
+					value = (uint)check;
+					return typeof(uint);
+				}else if(long.MinValue <= (long)check && check <= long.MaxValue){
+					value = (long)check;
+					return typeof(long);
+				}
+
+				return typeof(ulong);
 			}else if(double.TryParse(token, out double d)){
 				value = d;
 				return typeof(double);
@@ -2638,6 +2721,8 @@ namespace CSASM{
 				ArithmeticSet a => a,
 				Array arr => arr,
 				CSASMList l => l,
+				DateTimeRef dt => dt,
+				TimeSpanRef tm => tm,
 				null => null,
 				_ => throw new CompileException($"Unknown value type: \"{value.GetType().FullName}\"")
 			};
